@@ -451,13 +451,13 @@
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-72">Token</th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-20">类型</th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-20 cursor-pointer hover:bg-muted/50 select-none" onclick="toggleTokenSort('status')">
-                  <span class="inline-flex items-center gap-1">状态<span id="sortIconStatus" class="text-xs opacity-50"></span></span>
+                  <span class="inline-flex items-center gap-1">状态<span id="sortIconStatus" class="text-xs opacity-50">↕</span></span>
                 </th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-20 cursor-pointer hover:bg-muted/50 select-none" onclick="toggleTokenSort('remaining_queries')">
-                  <span class="inline-flex items-center gap-1">普通<span id="sortIconRemaining_queries" class="text-xs opacity-50"></span></span>
+                  <span class="inline-flex items-center gap-1">普通<span id="sortIconRemaining_queries" class="text-xs opacity-50">↕</span></span>
                 </th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-20 cursor-pointer hover:bg-muted/50 select-none" onclick="toggleTokenSort('heavy_remaining_queries')">
-                  <span class="inline-flex items-center gap-1">高级<span id="sortIconHeavy_remaining_queries" class="text-xs opacity-50"></span></span>
+                  <span class="inline-flex items-center gap-1">高级<span id="sortIconHeavy_remaining_queries" class="text-xs opacity-50">↕</span></span>
                 </th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-40">限流信息</th>
                 <th class="h-10 px-3 text-left align-middle text-sm font-medium text-muted-foreground w-48">最近失败</th>
@@ -1788,7 +1788,7 @@
             iconEl.classList.remove('opacity-50');
             iconEl.classList.add('opacity-100');
           } else {
-            iconEl.textContent = '';
+            iconEl.textContent = '↕';
             iconEl.classList.remove('opacity-100');
             iconEl.classList.add('opacity-50');
           }
