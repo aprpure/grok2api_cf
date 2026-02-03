@@ -89,6 +89,36 @@
         </div>
       </div>
 
+      <!-- Filter Controls -->
+      <div class="flex items-center gap-3 mb-4 flex-wrap">
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-[var(--accents-5)]">类型:</label>
+          <select id="filter-type" class="geist-select text-sm" onchange="applyFilters()">
+            <option value="">全部</option>
+            <option value="ssoBasic">普通 (ssoBasic)</option>
+            <option value="ssoSuper">超级 (ssoSuper)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-[var(--accents-5)]">状态:</label>
+          <select id="filter-status" class="geist-select text-sm" onchange="applyFilters()">
+            <option value="">全部</option>
+            <option value="active">正常</option>
+            <option value="cooling">限流</option>
+            <option value="invalid">失效</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 ml-auto">
+          <label class="text-sm text-[var(--accents-5)]">每页:</label>
+          <select id="page-size" class="geist-select text-sm" onchange="changePageSize()">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Token Table -->
       <div class="rounded-lg overflow-hidden bg-white mb-4 overflow-x-auto">
         <table class="geist-table min-w-[800px]">
@@ -97,8 +127,14 @@
               <th class="w-10"><input type="checkbox" id="select-all" class="checkbox" onclick="toggleSelectAll()"></th>
               <th class="w-48 text-left">Token</th>
               <th class="w-24">类型</th>
-              <th class="w-24">状态</th>
-              <th class="w-20">额度</th>
+              <th class="w-24 cursor-pointer hover:bg-gray-100 select-none" onclick="toggleSort('status')">
+                状态
+                <span id="sort-status-icon" class="ml-1 text-xs text-gray-400"></span>
+              </th>
+              <th class="w-20 cursor-pointer hover:bg-gray-100 select-none" onclick="toggleSort('quota')">
+                额度
+                <span id="sort-quota-icon" class="ml-1 text-xs text-gray-400"></span>
+              </th>
               <th class="text-left">备注</th>
               <th class="w-32 text-center">操作</th>
             </tr>
@@ -110,6 +146,40 @@
         <div id="loading" class="text-center py-12 text-[var(--accents-4)]">加载中...</div>
         <div id="empty-state" class="hidden text-center py-12 text-[var(--accents-4)]">
           暂无 Token，请点击右上角导入或添加。
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div id="pagination-controls" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+          <div class="text-sm text-gray-600">
+            显示 <span id="page-start">0</span>-<span id="page-end">0</span> / 共 <span id="page-total">0</span> 条
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="goToPage('first')" id="btn-first" class="geist-button-sm" disabled title="第一页">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="11 17 6 12 11 7"></polyline>
+                <polyline points="18 17 13 12 18 7"></polyline>
+              </svg>
+            </button>
+            <button onclick="goToPage('prev')" id="btn-prev" class="geist-button-sm" disabled title="上一页">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <span class="text-sm px-2">
+              第 <span id="page-current">1</span> / <span id="page-count">1</span> 页
+            </span>
+            <button onclick="goToPage('next')" id="btn-next" class="geist-button-sm" disabled title="下一页">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+            <button onclick="goToPage('last')" id="btn-last" class="geist-button-sm" disabled title="最后一页">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="13 17 18 12 13 7"></polyline>
+                <polyline points="6 17 11 12 6 7"></polyline>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

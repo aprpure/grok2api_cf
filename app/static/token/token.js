@@ -14,6 +14,15 @@ let autoRegisterLastAdded = 0;
 let liveStatsTimer = null;
 let isWorkersRuntime = false;
 
+// Pagination, Sorting, and Filtering state
+let currentPage = 1;
+let pageSize = 25;
+let sortField = null;      // 'status' or 'quota'
+let sortOrder = 'asc';     // 'asc' or 'desc'
+let filterType = '';       // 'ssoBasic' or 'ssoSuper' or ''
+let filterStatus = '';     // 'active', 'cooling', 'invalid' or ''
+let filteredTokens = [];   // Tokens after filtering and sorting
+
 function setAutoRegisterUiEnabled(enabled) {
   const btnAuto = document.getElementById('tab-btn-auto');
   const tabAuto = document.getElementById('add-tab-auto');
@@ -177,6 +186,8 @@ function processTokens(data) {
       });
     }
   });
+  // Initialize filtered tokens after processing
+  updateFilteredTokens();
 }
 
 function updateStats(data) {
@@ -217,6 +228,153 @@ function updateStats(data) {
   setText('stat-total-calls', totalCalls.toLocaleString());
 }
 
+// Apply filters and sorting, then render table
+function applyFilters() {
+  filterType = document.getElementById('filter-type')?.value || '';
+  filterStatus = document.getElementById('filter-status')?.value || '';
+  currentPage = 1; // Reset to first page when filtering
+  updateFilteredTokens();
+  renderTable();
+}
+
+// Toggle sort by field
+function toggleSort(field) {
+  if (sortField === field) {
+    // Toggle order or clear
+    if (sortOrder === 'asc') {
+      sortOrder = 'desc';
+    } else if (sortOrder === 'desc') {
+      sortField = null;
+      sortOrder = 'asc';
+    }
+  } else {
+    sortField = field;
+    sortOrder = 'asc';
+  }
+  updateSortIcons();
+  updateFilteredTokens();
+  renderTable();
+}
+
+// Update sort icons in table headers
+function updateSortIcons() {
+  const statusIcon = document.getElementById('sort-status-icon');
+  const quotaIcon = document.getElementById('sort-quota-icon');
+  
+  if (statusIcon) {
+    statusIcon.textContent = sortField === 'status' ? (sortOrder === 'asc' ? '▲' : '▼') : '';
+  }
+  if (quotaIcon) {
+    quotaIcon.textContent = sortField === 'quota' ? (sortOrder === 'asc' ? '▲' : '▼') : '';
+  }
+}
+
+// Change page size
+function changePageSize() {
+  pageSize = parseInt(document.getElementById('page-size')?.value || '25', 10);
+  currentPage = 1; // Reset to first page
+  renderTable();
+}
+
+// Navigate pages
+function goToPage(action) {
+  const totalPages = Math.ceil(filteredTokens.length / pageSize) || 1;
+  
+  switch (action) {
+    case 'first':
+      currentPage = 1;
+      break;
+    case 'prev':
+      currentPage = Math.max(1, currentPage - 1);
+      break;
+    case 'next':
+      currentPage = Math.min(totalPages, currentPage + 1);
+      break;
+    case 'last':
+      currentPage = totalPages;
+      break;
+    default:
+      if (typeof action === 'number') {
+        currentPage = Math.max(1, Math.min(totalPages, action));
+      }
+  }
+  renderTable();
+}
+
+// Update filtered and sorted tokens array
+function updateFilteredTokens() {
+  // Start with all tokens
+  let tokens = [...flatTokens];
+  
+  // Apply type filter
+  if (filterType) {
+    tokens = tokens.filter(t => t.pool === filterType);
+  }
+  
+  // Apply status filter
+  if (filterStatus) {
+    tokens = tokens.filter(t => t.status === filterStatus);
+  }
+  
+  // Apply sorting
+  if (sortField) {
+    tokens.sort((a, b) => {
+      let valA, valB;
+      
+      if (sortField === 'status') {
+        // Custom order: active > cooling > invalid
+        const statusOrder = { active: 0, cooling: 1, invalid: 2 };
+        valA = statusOrder[a.status] ?? 3;
+        valB = statusOrder[b.status] ?? 3;
+      } else if (sortField === 'quota') {
+        valA = parseInt(a.quota, 10) || 0;
+        valB = parseInt(b.quota, 10) || 0;
+      } else {
+        valA = a[sortField];
+        valB = b[sortField];
+      }
+      
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+  
+  filteredTokens = tokens;
+}
+
+// Update pagination UI
+function updatePaginationUI() {
+  const total = filteredTokens.length;
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  
+  // Update text displays
+  const pageStart = document.getElementById('page-start');
+  const pageEnd = document.getElementById('page-end');
+  const pageTotal = document.getElementById('page-total');
+  const pageCurrent = document.getElementById('page-current');
+  const pageCount = document.getElementById('page-count');
+  
+  if (pageStart) pageStart.textContent = total > 0 ? startIdx + 1 : 0;
+  if (pageEnd) pageEnd.textContent = endIdx;
+  if (pageTotal) pageTotal.textContent = total;
+  if (pageCurrent) pageCurrent.textContent = currentPage;
+  if (pageCount) pageCount.textContent = totalPages;
+  
+  // Update button states
+  const btnFirst = document.getElementById('btn-first');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const btnLast = document.getElementById('btn-last');
+  
+  if (btnFirst) btnFirst.disabled = currentPage <= 1;
+  if (btnPrev) btnPrev.disabled = currentPage <= 1;
+  if (btnNext) btnNext.disabled = currentPage >= totalPages;
+  if (btnLast) btnLast.disabled = currentPage >= totalPages;
+}
+
 function renderTable() {
   const tbody = document.getElementById('token-table-body');
   const loading = document.getElementById('loading');
@@ -225,19 +383,39 @@ function renderTable() {
   tbody.innerHTML = '';
   loading.classList.add('hidden');
 
+  // Make sure filteredTokens is up to date
+  if (filteredTokens.length === 0 && flatTokens.length > 0) {
+    updateFilteredTokens();
+  }
+
   if (flatTokens.length === 0) {
     emptyState.classList.remove('hidden');
+    updatePaginationUI();
     return;
   }
   emptyState.classList.add('hidden');
 
-  flatTokens.forEach((item, index) => {
+  // Calculate pagination
+  const total = filteredTokens.length;
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  
+  // Ensure currentPage is valid
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageTokens = filteredTokens.slice(startIdx, endIdx);
+
+  pageTokens.forEach((item) => {
+    // Find original index in flatTokens for operations
+    const originalIndex = flatTokens.findIndex(t => t.token === item.token);
     const tr = document.createElement('tr');
 
     // Checkbox (Center)
     const tdCheck = document.createElement('td');
     tdCheck.className = 'text-center';
-    tdCheck.innerHTML = `<input type="checkbox" class="checkbox" ${item._selected ? 'checked' : ''} onchange="toggleSelect(${index})">`;
+    tdCheck.innerHTML = `<input type="checkbox" class="checkbox" ${item._selected ? 'checked' : ''} onchange="toggleSelect(${originalIndex})">`;
 
     // Token (Left)
     const tdToken = document.createElement('td');
@@ -286,10 +464,10 @@ function renderTable() {
                      <button onclick="refreshStatus('${item.token}')" class="p-1 text-gray-400 hover:text-black rounded" title="刷新状态">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                      </button>
-                     <button onclick="openEditModal(${index})" class="p-1 text-gray-400 hover:text-black rounded" title="编辑">
+                     <button onclick="openEditModal(${originalIndex})" class="p-1 text-gray-400 hover:text-black rounded" title="编辑">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                      </button>
-                     <button onclick="deleteToken(${index})" class="p-1 text-gray-400 hover:text-red-600 rounded" title="删除">
+                     <button onclick="deleteToken(${originalIndex})" class="p-1 text-gray-400 hover:text-red-600 rounded" title="删除">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                      </button>
                 </div>
@@ -307,18 +485,28 @@ function renderTable() {
   });
 
   updateSelectionState();
+  updatePaginationUI();
 }
 
 // Selection Logic
 function toggleSelectAll() {
   const checkbox = document.getElementById('select-all');
   const checked = checkbox.checked;
-  flatTokens.forEach(t => t._selected = checked);
+  // Only toggle tokens on current page
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filteredTokens.length);
+  const pageTokens = filteredTokens.slice(startIdx, endIdx);
+  
+  pageTokens.forEach(item => {
+    const idx = flatTokens.findIndex(t => t.token === item.token);
+    if (idx >= 0) flatTokens[idx]._selected = checked;
+  });
   renderTable();
 }
 
 function toggleSelect(index) {
   flatTokens[index]._selected = !flatTokens[index]._selected;
+  updateFilteredTokens(); // Update filtered array to reflect selection
   updateSelectionState();
 }
 

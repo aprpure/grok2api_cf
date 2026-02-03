@@ -306,3 +306,69 @@
     .tab-panel.hidden {
       display: none;
     }
+
+    /* Select dropdown styling */
+    .geist-select {
+      padding: 6px 28px 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 6px center;
+      background-repeat: no-repeat;
+      background-size: 16px 16px;
+      color: var(--accents-6);
+      font-size: 13px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .geist-select:hover {
+      border-color: var(--accents-3);
+    }
+
+    .geist-select:focus {
+      outline: none;
+      border-color: #000;
+      box-shadow: 0 0 0 1px #000;
+    }
+
+    /* Small button styling for pagination */
+    .geist-button-sm {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accents-6);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .geist-button-sm:hover:not(:disabled) {
+      border-color: var(--accents-3);
+      color: var(--accents-7);
+    }
+
+    .geist-button-sm:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .geist-button-sm svg {
+      color: currentColor;
+    }
+
+    /* Pagination controls container */
+    #pagination-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
