@@ -1604,10 +1604,8 @@
             last_failure_reason: t.last_failure_reason || '',
             limit_reason: t.limit_reason || ''
           }));
-          filteredTokens = allTokens;
-          applyTokenSort();
-          selectedTokens.clear();
-          renderTokens();
+          // 重新应用当前的筛选条件，而不是重置为全部
+          reapplyFilters();
           updateRemaining();
           await loadAllTags();
         }
@@ -1733,6 +1731,17 @@
       applyTokenSort();
       selectedTokens.clear();
       currentTokenPage = 1; // 重置到第一页
+      renderTokens();
+    };
+    // 重新应用筛选（刷新后保持筛选条件，不重置页码）
+    const reapplyFilters = () => {
+      const tf = $('filterType').value, sf = $('filterStatus').value, tagf = $('filterTag').value;
+      filteredTokens = allTokens.filter(t => (tf === 'all' || t.token_type === tf) && (sf === 'all' || t.status === sf) && (tagf === 'all' || t.tags && t.tags.includes(tagf)));
+      applyTokenSort();
+      selectedTokens.clear();
+      // 确保当前页不超过最大页
+      const maxPage = Math.max(1, Math.ceil(filteredTokens.length / tokensPerPage));
+      if (currentTokenPage > maxPage) currentTokenPage = maxPage;
       renderTokens();
     };
     // Token 排序函数
