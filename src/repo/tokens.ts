@@ -228,3 +228,22 @@ export async function updateTokenLimits(
   params.push(token);
   await dbRun(db, `UPDATE tokens SET ${parts.join(", ")} WHERE token = ?`, params);
 }
+
+/**
+ * 恢复 Token 状态：当刷新发现 Token 有剩余次数时，
+ * 将其从 "expired" 状态恢复为 "active"，并重置失败计数
+ */
+export async function recoverTokenStatus(
+  db: Env["DB"],
+  token: string,
+  remaining: number,
+): Promise<void> {
+  // 只有当剩余次数大于 0 时才恢复状态
+  if (remaining <= 0) return;
+  
+  await dbRun(
+    db,
+    "UPDATE tokens SET status = 'active', failed_count = 0 WHERE token = ? AND status = 'expired'",
+    [token],
+  );
+}

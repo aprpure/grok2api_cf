@@ -24,6 +24,7 @@ import {
   updateTokenNote,
   updateTokenTags,
   updateTokenLimits,
+  recoverTokenStatus,
 } from "../repo/tokens";
 import { checkRateLimits } from "../grok/rateLimits";
 import { addRequestLog, clearRequestLogs, getRequestLogs, getRequestStats } from "../repo/logs";
@@ -791,8 +792,17 @@ adminRoutes.post("/api/tokens/test", requireAdminAuth, async (c) => {
 adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
   try {
     const progress = await getRefreshProgress(c.env.DB);
+    const STALE_TIMEOUT = 2 * 60 * 1000; // 2 分钟超时
+    const now = Date.now();
+
+    // 超时重置机制：如果 running 状态超过 2 分钟没更新，自动重置
     if (progress.running) {
-      return c.json({ success: false, message: "刷新任务正在进行中", data: progress });
+      if (now - progress.updated_at > STALE_TIMEOUT) {
+        // 任务已超时，自动重置状态
+        await setRefreshProgress(c.env.DB, { running: false });
+      } else {
+        return c.json({ success: false, message: "刷新任务正在进行中", data: progress });
+      }
     }
 
     const tokens = await listTokens(c.env.DB);
@@ -806,6 +816,7 @@ adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
 
     const settings = await getSettings(c.env);
     const cf = normalizeCfCookie(settings.grok.cf_clearance ?? "");
+    const BATCH_SIZE = 5; // 每批并发 5 个请求
 
     c.executionCtx.waitUntil(
       (async () => {
@@ -817,18 +828,7 @@ adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
           const r = await checkRateLimits(cookie, settings.grok, "grok-4-fast");
           if (r) {
             const remaining = (r as any).remainingTokens;
-            let heavyRemaining: number | null = null;
-            if (t.token_type === "ssoSuper") {
-              const rh = await checkRateLimits(cookie, settings.grok, "grok-4-heavy");
-              const hv = (rh as any)?.remainingTokens;
-              if (typeof hv === "number") heavyRemaining = hv;
-            }
-            if (typeof remaining === "number") {
-              await updateTokenLimits(c.env.DB, t.token, {
-                remaining_queries: remaining,
-                ...(heavyRemaining !== null ? { heavy_remaining_queries: heavyRemaining } : {}),
-              });
-            }
+            if (typeof remaining === "number") await updateTokenLimits(c.env.DB, t.token, { remaining_queries: remaining });
             success += 1;
           } else {
             failed += 1;
