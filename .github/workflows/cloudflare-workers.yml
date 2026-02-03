@@ -67,6 +67,8 @@ jobs:
           dst_path = "wrangler.ci.toml"
           print(f"Reading {src_path}...", flush=True)
           wrangler_text = open(src_path, "r", encoding="utf-8").read()
+          # Normalize line endings to LF for consistent regex matching
+          wrangler_text = wrangler_text.replace("\r\n", "\n").replace("\r", "\n")
 
           def extract(pattern: str, fallback: str) -> str:
               m = re.search(pattern, wrangler_text)
@@ -181,9 +183,9 @@ jobs:
               data = tomllib.load(f)
           placement = data.get("placement") or {}
           region = (placement.get("region") or "").strip()
-          if region != "aws:us-east-1":
+          if region != "aws:us-east-2":
               raise SystemExit(
-                  'wrangler.ci.toml: missing required [placement] region = "aws:us-east-1"'
+                  'wrangler.ci.toml: missing required [placement] region = "aws:us-east-2"'
               )
           def normalize_dir(v: str) -> str:
               s = (v or "").strip().replace("\\\\", "/")
