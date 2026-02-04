@@ -719,6 +719,16 @@ function formatSize(bytes) {
   return `${bytes} B`;
 }
 
+function truncateName(name, maxLen = 40) {
+  if (!name || name.length <= maxLen) return name;
+  const ext = name.lastIndexOf('.') > 0 ? name.slice(name.lastIndexOf('.')) : '';
+  const base = ext ? name.slice(0, name.lastIndexOf('.')) : name;
+  const keepLen = maxLen - ext.length - 3; // 3 for "..."
+  if (keepLen <= 6) return name.slice(0, maxLen - 3) + '...';
+  const half = Math.floor(keepLen / 2);
+  return base.slice(0, half) + '...' + base.slice(-half) + ext;
+}
+
 async function showCacheSection(type) {
   ensureUI();
   currentSection = type;
@@ -817,7 +827,7 @@ function renderLocalCacheList(type, items) {
         <td class="text-left">
           <div class="flex items-center gap-2">
             ${preview}
-            <span class="font-mono text-xs text-gray-500">${item.name}</span>
+            <span class="font-mono text-xs text-gray-500" title="${escapeHtml(item.name)}">${escapeHtml(truncateName(item.name))}</span>
           </div>
         </td>
         <td class="text-left">${formatSize(item.size_bytes)}</td>
