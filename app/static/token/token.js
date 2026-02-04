@@ -21,6 +21,7 @@ let sortField = null;      // 'status' or 'quota'
 let sortOrder = 'asc';     // 'asc' or 'desc'
 let filterType = '';       // 'ssoBasic' or 'ssoSuper' or ''
 let filterStatus = '';     // 'active', 'cooling', 'invalid' or ''
+let searchQuery = '';      // Search query for token or note
 let filteredTokens = [];   // Tokens after filtering and sorting
 
 function setAutoRegisterUiEnabled(enabled) {
@@ -228,6 +229,37 @@ function updateStats(data) {
   setText('stat-total-calls', totalCalls.toLocaleString());
 }
 
+// Apply search filter
+function applySearch() {
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('clear-search');
+  
+  searchQuery = input?.value.trim().toLowerCase() || '';
+  
+  // Show/hide clear button
+  if (clearBtn) {
+    clearBtn.classList.toggle('hidden', !searchQuery);
+  }
+  
+  currentPage = 1; // Reset to first page when searching
+  updateFilteredTokens();
+  renderTable();
+}
+
+// Clear search
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('clear-search');
+  
+  if (input) input.value = '';
+  if (clearBtn) clearBtn.classList.add('hidden');
+  
+  searchQuery = '';
+  currentPage = 1;
+  updateFilteredTokens();
+  renderTable();
+}
+
 // Apply filters and sorting, then render table
 function applyFilters() {
   filterType = document.getElementById('filter-type')?.value || '';
@@ -305,6 +337,15 @@ function goToPage(action) {
 function updateFilteredTokens() {
   // Start with all tokens
   let tokens = [...flatTokens];
+  
+  // Apply search filter
+  if (searchQuery) {
+    tokens = tokens.filter(t => {
+      const tokenLower = t.token.toLowerCase();
+      const noteLower = (t.note || '').toLowerCase();
+      return tokenLower.includes(searchQuery) || noteLower.includes(searchQuery);
+    });
+  }
   
   // Apply type filter
   if (filterType) {
@@ -1360,7 +1401,5 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-
 
 window.onload = init;
