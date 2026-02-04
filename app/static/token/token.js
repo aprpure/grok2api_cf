@@ -553,9 +553,17 @@ function toggleSelect(index) {
 
 function updateSelectionState() {
   const selectedCount = flatTokens.filter(t => t._selected).length;
-  const allSelected = flatTokens.length > 0 && selectedCount === flatTokens.length;
+  
+  // Check if all tokens on current page are selected
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filteredTokens.length);
+  const pageTokens = filteredTokens.slice(startIdx, endIdx);
+  const pageAllSelected = pageTokens.length > 0 && pageTokens.every(item => {
+    const idx = flatTokens.findIndex(t => t.token === item.token);
+    return idx >= 0 && flatTokens[idx]._selected;
+  });
 
-  document.getElementById('select-all').checked = allSelected;
+  document.getElementById('select-all').checked = pageAllSelected;
   document.getElementById('selected-count').innerText = selectedCount;
   setActionButtonsState();
 }
