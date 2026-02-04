@@ -1043,6 +1043,28 @@ function exportTokens() {
   document.body.removeChild(a);
 }
 
+// Export All Tokens - one-click export all tokens
+function exportAllTokens() {
+  if (flatTokens.length === 0) {
+    return showToast('没有可导出的 Token', 'error');
+  }
+
+  let content = "";
+  flatTokens.forEach(t => content += t.token + "\n");
+
+  const blob = new Blob([content.trim()], { type: 'text/plain' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `all_tokens_${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  
+  showToast(`已导出 ${flatTokens.length} 个 Token`, 'success');
+}
+
 async function copyToClipboard(text, btn) {
   if (!text) return;
   try {
