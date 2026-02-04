@@ -420,7 +420,7 @@ adminRoutes.post("/api/v1/admin/tokens/refresh", requireAdminAuth, async (c) => 
       try {
         const cookie = cf ? `sso-rw=${t};sso=${t};${cf}` : `sso-rw=${t};sso=${t}`;
         const tokenType = tokenTypeByToken.get(t) ?? "sso";
-        const r = await checkRateLimits(cookie, settings.grok, "grok-4-fast");
+        const r = await checkRateLimits(cookie, settings.grok, "grok-3");
         const remaining = (r as any)?.remainingTokens;
         let heavyRemaining: number | null = null;
         if (tokenType === "ssoSuper") {
@@ -723,7 +723,7 @@ adminRoutes.post("/api/tokens/test", requireAdminAuth, async (c) => {
     const cf = normalizeCfCookie(settings.grok.cf_clearance ?? "");
     const cookie = cf ? `sso-rw=${token};sso=${token};${cf}` : `sso-rw=${token};sso=${token}`;
 
-    const result = await checkRateLimits(cookie, settings.grok, "grok-4-fast");
+    const result = await checkRateLimits(cookie, settings.grok, "grok-3");
     if (result) {
       const remaining = (result as any).remainingTokens ?? -1;
       const limit = (result as any).limit ?? -1;
@@ -822,21 +822,66 @@ adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
       (async () => {
         let success = 0;
         let failed = 0;
-        for (let i = 0; i < tokens.length; i++) {
-          const t = tokens[i]!;
-          const cookie = cf ? `sso-rw=${t.token};sso=${t.token};${cf}` : `sso-rw=${t.token};sso=${t.token}`;
-          const r = await checkRateLimits(cookie, settings.grok, "grok-4-fast");
-          if (r) {
-            const remaining = (r as any).remainingTokens;
-            if (typeof remaining === "number") await updateTokenLimits(c.env.DB, t.token, { remaining_queries: remaining });
-            success += 1;
-          } else {
-            failed += 1;
+        let processed = 0;
+
+        try {
+          // 批量并发处理
+          for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+            const batch = tokens.slice(i, i + BATCH_SIZE);
+
+            const results = await Promise.allSettled(
+              batch.map(async (t) => {
+                const cookie = cf ? `sso-rw=${t.token};sso=${t.token};${cf}` : `sso-rw=${t.token};sso=${t.token}`;
+                const r = await checkRateLimits(cookie, settings.grok, "grok-3");
+                if (r) {
+                  const remaining = (r as any).remainingTokens;
+                  if (typeof remaining === "number") {
+                    await updateTokenLimits(c.env.DB, t.token, { remaining_queries: remaining });
+                    // 如果 Token 有剩余次数，尝试恢复其状态（从 expired 恢复为 active）
+                    if (remaining > 0) {
+                      await recoverTokenStatus(c.env.DB, t.token, remaining);
+                    }
+                  }
+                  return true;
+                }
+                return false;
+              }),
+            );
+
+            // 统计本批次结果
+            for (const result of results) {
+              if (result.status === "fulfilled" && result.value) {
+                success += 1;
+              } else {
+                failed += 1;
+              }
+              processed += 1;
+            }
+
+            // 更新进度
+            await setRefreshProgress(c.env.DB, {
+              running: true,
+              current: processed,
+              total: tokens.length,
+              success,
+              failed,
+            });
+
+            // 批次间短暂延迟，避免请求过于密集
+            if (i + BATCH_SIZE < tokens.length) {
+              await new Promise((res) => setTimeout(res, 50));
+            }
           }
-          await setRefreshProgress(c.env.DB, { running: true, current: i + 1, total: tokens.length, success, failed });
-          await new Promise((res) => setTimeout(res, 100));
+        } finally {
+          // 确保无论成功还是失败，都将 running 状态设为 false
+          await setRefreshProgress(c.env.DB, {
+            running: false,
+            current: processed,
+            total: tokens.length,
+            success,
+            failed,
+          });
         }
-        await setRefreshProgress(c.env.DB, { running: false, current: tokens.length, total: tokens.length, success, failed });
       })(),
     );
 
