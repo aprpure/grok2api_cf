@@ -81,18 +81,19 @@ app.onError((err, c) => {
   return withResponseHeaders(res, { "x-grok2api-build": buildSha });
 });
 
-app.route("/v1", openAiRoutes);
-app.route("/", mediaRoutes);
-app.route("/", adminRoutes);
-
 // Backward-compatible local-cache viewer URLs used by the multi-page admin UI.
 // In Workers we serve cache via /images/*, so redirect /v1/files/* to /images/*.
+// NOTE: These routes MUST be defined BEFORE openAiRoutes to avoid requireApiAuth middleware.
 app.get("/v1/files/image/:imgPath{.+}", (c) =>
   c.redirect(`/images/${encodeURIComponent(c.req.param("imgPath"))}`, 302),
 );
 app.get("/v1/files/video/:imgPath{.+}", (c) =>
   c.redirect(`/images/${encodeURIComponent(c.req.param("imgPath"))}`, 302),
 );
+
+app.route("/v1", openAiRoutes);
+app.route("/", mediaRoutes);
+app.route("/", adminRoutes);
 
 app.get("/_worker.js", (c) => c.notFound());
 
