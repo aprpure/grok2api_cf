@@ -310,7 +310,7 @@ adminRoutes.get("/api/v1/admin/tokens", requireAdminAuth, async (c) => {
       const quotaRaw = r.remaining_queries;
       const quota = quotaRaw >= 0 ? quotaRaw : 0;
       out[pool].push({
-        token: `sso=${r.token}`,
+        token: r.token,
         status,
         quota,
         note: r.note ?? "",
