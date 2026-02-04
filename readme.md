@@ -1,5 +1,7 @@
 # Grok2API
 
+本项目为对 [chenyme/grok2api](https://github.com/chenyme/grok2api) 的二次修改与增强。
+
 **中文** | [English](docs/README.en.md)
 
 > [!NOTE]
@@ -7,7 +9,7 @@
 
 基于 **FastAPI** 重构的 Grok2API，全面适配最新 Web 调用格式，支持流/非流式对话、图像生成/编辑、深度思考，号池并发与自动负载均衡一体化。
 
-<img width="2562" height="1280" alt="image" src="https://github.com/user-attachments/assets/356d772a-65e1-47bd-abc8-c00bb0e2c9cc" />
+<img width="1941" height="1403" alt="screenshot" src="docs/assets/screenshot-2026-02-05-064737.png" />
 
 <br>
 
