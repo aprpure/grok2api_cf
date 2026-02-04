@@ -433,6 +433,10 @@ adminRoutes.post("/api/v1/admin/tokens/refresh", requireAdminAuth, async (c) => 
             remaining_queries: remaining,
             ...(heavyRemaining !== null ? { heavy_remaining_queries: heavyRemaining } : {}),
           });
+          // 如果 Token 有剩余次数，尝试恢复其状态（从 expired 恢复为 active）
+          if (remaining > 0) {
+            await recoverTokenStatus(c.env.DB, t, remaining);
+          }
           results[`sso=${t}`] = true;
         } else {
           results[`sso=${t}`] = false;
