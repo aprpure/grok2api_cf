@@ -1151,7 +1151,9 @@ async function refreshStatus(token) {
     const data = await res.json();
 
     if (res.ok && data.status === 'success') {
-      const isSuccess = data.results && data.results[token];
+      // 后端返回的 results 键可能是 "sso=${token}" 或直接是 token
+      // 需要同时检查两种格式
+      const isSuccess = data.results && (data.results[token] || data.results[`sso=${token}`]);
       loadData();
 
       if (isSuccess) {
