@@ -151,6 +151,23 @@ def resolve_response_format(response_format: Optional[str]) -> str:
     )
 
 
+def resolve_image_response_format(
+    response_format: Optional[str],
+    image_method: str,
+) -> str:
+    """
+    Keep legacy behavior, but for experimental imagine path:
+    if caller does not explicitly provide response_format and global default is `url`,
+    prefer `b64_json` to avoid loopback URL rendering issues in local deployments.
+    """
+    raw = response_format if not isinstance(response_format, str) else response_format.strip()
+    if not raw and image_method == IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL:
+        default_format = str(get_config("app.image_format", "url") or "url").strip().lower()
+        if default_format == "url":
+            return "b64_json"
+    return resolve_response_format(response_format)
+
+
 def response_field_name(response_format: str) -> str:
     if response_format == "url":
         return "url"
@@ -402,14 +419,14 @@ async def create_image(
     validate_generation_request(request)
     model_id = request.model or "grok-imagine-1.0"
     n = int(request.n or 1)
-    response_format = resolve_response_format(request.response_format)
+    image_method = _image_generation_method()
+    response_format = resolve_image_response_format(request.response_format, image_method)
     request.response_format = response_format
     response_field = response_field_name(response_format)
 
     await enforce_daily_quota(api_key, model_id, image_count=n)
     token_mgr, token = await _get_token_for_model(model_id)
     model_info = ModelService.get(model_id)
-    image_method = _image_generation_method()
 
     if request.stream:
         if image_method == IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL:
@@ -607,7 +624,8 @@ async def edit_image(
     if edit_request.n is None:
         edit_request.n = 1
 
-    response_format = resolve_response_format(edit_request.response_format)
+    image_method = _image_generation_method()
+    response_format = resolve_image_response_format(edit_request.response_format, image_method)
     edit_request.response_format = response_format
     response_field = response_field_name(response_format)
     images = (image or []) + (image_alias or [])
@@ -673,8 +691,6 @@ async def edit_image(
                 file_uris.append(file_uri)
     finally:
         await upload_service.close()
-
-    image_method = _image_generation_method()
 
     if edit_request.stream:
         if image_method == IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL:

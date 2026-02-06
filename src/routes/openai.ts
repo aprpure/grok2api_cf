@@ -78,6 +78,15 @@ function quotaError(bucket: string): Record<string, unknown> {
   return openAiError(`Daily quota exceeded: ${bucket}`, "daily_quota_exceeded");
 }
 
+function isContentModerationMessage(message: string): boolean {
+  const m = String(message || "").toLowerCase();
+  return (
+    m.includes("content moderated") ||
+    m.includes("content-moderated") ||
+    m.includes("wke=grok:content-moderated")
+  );
+}
+
 async function enforceQuota(args: {
   env: Env;
   apiAuth: ApiAuthInfo;
@@ -796,6 +805,25 @@ function parseResponseFormatOrError(raw: unknown, defaultMode: string) {
   return { value: resolved };
 }
 
+function resolveImageResponseFormatByMethodOrError(
+  raw: unknown,
+  defaultMode: string,
+  imageMethod: ReturnType<typeof resolveImageGenerationMethod>,
+) {
+  const missing =
+    raw === undefined ||
+    raw === null ||
+    (typeof raw === "string" && raw.trim().length === 0);
+  const normalizedDefault = String(defaultMode || "url").trim().toLowerCase();
+  const effectiveDefault =
+    missing &&
+    imageMethod === IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL &&
+    normalizedDefault === "url"
+      ? "b64_json"
+      : defaultMode;
+  return parseResponseFormatOrError(raw, effectiveDefault);
+}
+
 openAiRoutes.get("/models", async (c) => {
   const ts = Math.floor(Date.now() / 1000);
   const data = Object.entries(MODEL_CONFIG).map(([id, cfg]) => ({
@@ -1062,9 +1090,11 @@ openAiRoutes.post("/images/generations", async (c) => {
     }
 
     const settingsBundle = await getSettings(c.env);
-    const parsedResponseFormat = parseResponseFormatOrError(
+    const imageMethod = imageGenerationMethod(settingsBundle);
+    const parsedResponseFormat = resolveImageResponseFormatByMethodOrError(
       body.response_format,
       imageFormatDefault(settingsBundle),
+      imageMethod,
     );
     if ("error" in parsedResponseFormat) {
       return c.json(
@@ -1075,7 +1105,6 @@ openAiRoutes.post("/images/generations", async (c) => {
     const responseFormat = parsedResponseFormat.value;
     const responseField = responseFieldName(responseFormat);
     const baseUrl = baseUrlFromSettings(settingsBundle, origin);
-    const imageMethod = imageGenerationMethod(settingsBundle);
     const cf = normalizeCfCookie(settingsBundle.grok.cf_clearance ?? "");
 
     const quota = await enforceQuota({
@@ -1152,6 +1181,9 @@ openAiRoutes.post("/images/generations", async (c) => {
           tokenSuffix: getTokenSuffix(chosen.token),
           error: txt.slice(0, 200),
         });
+        if (isContentModerationMessage(txt)) {
+          return c.json(openAiError(txt.slice(0, 500), "content_policy_violation"), 400);
+        }
         return c.json(openAiError(`Upstream ${upstream.status}`, "upstream_error"), 500);
       }
 
@@ -1248,6 +1280,19 @@ openAiRoutes.post("/images/generations", async (c) => {
 
     return c.json(buildImageJsonPayload(responseField, selected));
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (isContentModerationMessage(message)) {
+      await recordImageLog({
+        env: c.env,
+        ip,
+        model: requestedModel || "image",
+        start,
+        keyName,
+        status: 400,
+        error: message,
+      });
+      return c.json(openAiError(message, "content_policy_violation"), 400);
+    }
     await recordImageLog({
       env: c.env,
       ip,
@@ -1255,9 +1300,9 @@ openAiRoutes.post("/images/generations", async (c) => {
       start,
       keyName,
       status: 500,
-      error: e instanceof Error ? e.message : String(e),
+      error: message,
     });
-    return c.json(openAiError(e instanceof Error ? e.message : "Internal error", "internal_error"), 500);
+    return c.json(openAiError(message || "Internal error", "internal_error"), 500);
   }
 });
 
@@ -1292,9 +1337,11 @@ openAiRoutes.post("/images/edits", async (c) => {
     }
 
     const settingsBundle = await getSettings(c.env);
-    const parsedResponseFormat = parseResponseFormatOrError(
+    const imageMethod = imageGenerationMethod(settingsBundle);
+    const parsedResponseFormat = resolveImageResponseFormatByMethodOrError(
       form.get("response_format"),
       imageFormatDefault(settingsBundle),
+      imageMethod,
     );
     if ("error" in parsedResponseFormat) {
       return c.json(
@@ -1305,7 +1352,6 @@ openAiRoutes.post("/images/edits", async (c) => {
     const responseFormat = parsedResponseFormat.value;
     const responseField = responseFieldName(responseFormat);
     const baseUrl = baseUrlFromSettings(settingsBundle, origin);
-    const imageMethod = imageGenerationMethod(settingsBundle);
 
     const quota = await enforceQuota({
       env: c.env,
@@ -1405,6 +1451,9 @@ openAiRoutes.post("/images/edits", async (c) => {
           tokenSuffix: getTokenSuffix(chosen.token),
           error: txt.slice(0, 200),
         });
+        if (isContentModerationMessage(txt)) {
+          return c.json(openAiError(txt.slice(0, 500), "content_policy_violation"), 400);
+        }
         return c.json(openAiError(`Upstream ${upstream.status}`, "upstream_error"), 500);
       }
 
@@ -1494,6 +1543,19 @@ openAiRoutes.post("/images/edits", async (c) => {
 
     return c.json(buildImageJsonPayload(responseField, selected));
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (isContentModerationMessage(message)) {
+      await recordImageLog({
+        env: c.env,
+        ip,
+        model: requestedModel || "image",
+        start,
+        keyName,
+        status: 400,
+        error: message,
+      });
+      return c.json(openAiError(message, "content_policy_violation"), 400);
+    }
     await recordImageLog({
       env: c.env,
       ip,
@@ -1501,9 +1563,9 @@ openAiRoutes.post("/images/edits", async (c) => {
       start,
       keyName,
       status: 500,
-      error: e instanceof Error ? e.message : String(e),
+      error: message,
     });
-    return c.json(openAiError(e instanceof Error ? e.message : "Internal error", "internal_error"), 500);
+    return c.json(openAiError(message || "Internal error", "internal_error"), 500);
   }
 });
 
