@@ -25,7 +25,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-3": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3"],
     rate_limit_model: "grok-3",
-    display_name: "GROK-3",
+    display_name: "grok-3",
     description: "Grok 3 chat model",
     raw_model_path: "xai/grok-3",
     default_temperature: 1.0,
@@ -38,7 +38,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-3-mini": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3_MINI_THINKING"],
     rate_limit_model: "grok-3",
-    display_name: "GROK-3-MINI",
+    display_name: "grok-3-mini",
     description: "Grok 3 Mini thinking model",
     raw_model_path: "xai/grok-3",
     default_temperature: 1.0,
@@ -51,7 +51,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-3-thinking": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3_THINKING"],
     rate_limit_model: "grok-3",
-    display_name: "GROK-3-THINKING",
+    display_name: "grok-3-thinking",
     description: "Grok 3 with thinking mode",
     raw_model_path: "xai/grok-3",
     default_temperature: 1.0,
@@ -64,7 +64,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4": {
     grok_model: ["grok-4", "MODEL_MODE_GROK_4"],
     rate_limit_model: "grok-4",
-    display_name: "GROK-4",
+    display_name: "grok-4",
     description: "Grok 4 chat model",
     raw_model_path: "xai/grok-4",
     default_temperature: 1.0,
@@ -77,7 +77,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4-mini": {
     grok_model: ["grok-4-mini", "MODEL_MODE_GROK_4_MINI_THINKING"],
     rate_limit_model: "grok-4-mini",
-    display_name: "GROK-4-MINI",
+    display_name: "grok-4-mini",
     description: "Grok 4 mini thinking model",
     raw_model_path: "xai/grok-4-mini",
     default_temperature: 1.0,
@@ -90,7 +90,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4-thinking": {
     grok_model: ["grok-4", "MODEL_MODE_GROK_4_THINKING"],
     rate_limit_model: "grok-4",
-    display_name: "GROK-4-THINKING",
+    display_name: "grok-4-thinking",
     description: "Grok 4 with thinking mode",
     raw_model_path: "xai/grok-4",
     default_temperature: 1.0,
@@ -103,7 +103,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4-heavy": {
     grok_model: ["grok-4", "MODEL_MODE_HEAVY"],
     rate_limit_model: "grok-4-heavy",
-    display_name: "GROK-4-HEAVY",
+    display_name: "grok-4-heavy",
     description: "Most powerful Grok model (Super tokens required)",
     raw_model_path: "xai/grok-4",
     default_temperature: 1.0,
@@ -116,7 +116,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4.1-mini": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_GROK_4_1_MINI_THINKING"],
     rate_limit_model: "grok-4-1-thinking-1129",
-    display_name: "GROK-4.1-MINI",
+    display_name: "grok-4.1-mini",
     description: "Grok 4.1 mini thinking model",
     raw_model_path: "xai/grok-4-1-thinking-1129",
     default_temperature: 1.0,
@@ -129,7 +129,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4.1-fast": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_FAST"],
     rate_limit_model: "grok-4-1-thinking-1129",
-    display_name: "GROK-4.1-FAST",
+    display_name: "grok-4.1-fast",
     description: "Fast Grok 4.1 chat model",
     raw_model_path: "xai/grok-4-1-thinking-1129",
     default_temperature: 1.0,
@@ -142,7 +142,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4.1-expert": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_EXPERT"],
     rate_limit_model: "grok-4-1-thinking-1129",
-    display_name: "GROK-4.1-EXPERT",
+    display_name: "grok-4.1-expert",
     description: "Expert Grok 4.1 chat model",
     raw_model_path: "xai/grok-4-1-thinking-1129",
     default_temperature: 1.0,
@@ -155,7 +155,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-4.1-thinking": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_GROK_4_1_THINKING"],
     rate_limit_model: "grok-4-1-thinking-1129",
-    display_name: "GROK-4.1-THINKING",
+    display_name: "grok-4.1-thinking",
     description: "Grok 4.1 with thinking mode",
     raw_model_path: "xai/grok-4-1-thinking-1129",
     default_temperature: 1.0,
@@ -168,7 +168,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-imagine-1.0": {
     grok_model: ["grok-3", "MODEL_MODE_FAST"],
     rate_limit_model: "grok-3",
-    display_name: "Grok Image",
+    display_name: "grok-imagine-1.0",
     description: "Image generation model",
     raw_model_path: "xai/grok-imagine-1.0",
     default_temperature: 1.0,
@@ -182,7 +182,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-imagine-1.0-video": {
     grok_model: ["grok-3", "MODEL_MODE_FAST"],
     rate_limit_model: "grok-3",
-    display_name: "Grok Video",
+    display_name: "grok-imagine-1.0-video",
     description: "Video generation model",
     raw_model_path: "xai/grok-imagine-1.0-video",
     default_temperature: 1.0,
