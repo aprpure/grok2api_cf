@@ -44,16 +44,25 @@ function toAbsoluteUrl(url) {
 }
 
 function showUserMsg(role, content) {
+  const messagesContainer = q('chat-messages');
+  
+  // 移除空状态
+  const emptyState = messagesContainer.querySelector('.empty-state');
+  if (emptyState) emptyState.remove();
+  
   const wrap = document.createElement('div');
-  wrap.className = 'msg';
+  wrap.className = `msg ${role}`;
+  const roleIcon = role === 'user' ? '👤' : '🤖';
+  const roleLabel = role === 'user' ? '你' : 'Grok';
   wrap.innerHTML = `
-    <div class="msg-role">${escapeHtml(role)}</div>
+    <div class="msg-avatar">${roleIcon}</div>
+    <div class="msg-role">${escapeHtml(roleLabel)}</div>
     <div class="msg-bubble"></div>
   `;
   const bubble = wrap.querySelector('.msg-bubble');
   renderContent(bubble, content, role !== 'assistant');
-  q('chat-messages').appendChild(wrap);
-  q('chat-messages').scrollTop = q('chat-messages').scrollHeight;
+  messagesContainer.appendChild(wrap);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
   return bubble;
 }
 
@@ -362,6 +371,9 @@ async function sendChat() {
 }
 
 async function streamChat(body, bubbleEl) {
+  // 显示加载动画
+  bubbleEl.innerHTML = '<div class="loading-typing"><span></span><span></span><span></span></div>';
+  
   const headers = { ...buildApiHeaders(), 'Content-Type': 'application/json' };
   const res = await fetch('/v1/chat/completions', { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok || !res.body) {
