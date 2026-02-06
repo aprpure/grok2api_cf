@@ -2,6 +2,142 @@ import type { GrokSettings, GlobalSettings } from "../settings";
 
 type GrokNdjson = Record<string, unknown>;
 
+/**
+ * Tag 过滤器 - 支持跨 token 的精确过滤
+ * 只过滤标签内的内容，保留标签外的文本
+ *
+ * 例如: "Hello <xai:artifact>内容</xai:artifact> World"
+ * 过滤后: "Hello  World"
+ */
+class TagFilter {
+  private tags: string[];
+  private inFilterTag = false;
+  private tagBuffer = "";
+  private pendingPrefix = ""; // 可能是标签开头，等待更多字符确认
+
+  constructor(filterTags: string[]) {
+    this.tags = filterTags.filter(Boolean);
+  }
+
+  /**
+   * 过滤 token 中的标签内容
+   * @param token 输入的 token
+   * @returns 过滤后的文本（可能为空）
+   */
+  filter(token: string): string {
+    if (!this.tags.length) return token;
+
+    let result = "";
+    let i = 0;
+
+    while (i < token.length) {
+      const char = token[i]!;
+
+      // 如果有待确认的前缀，继续累积
+      if (this.pendingPrefix) {
+        this.pendingPrefix += char;
+
+        // 检查是否匹配任何标签开头
+        let anyMatch = false;
+        let fullMatch = false;
+        for (const tag of this.tags) {
+          const openTag = `<${tag}`;
+          if (openTag.startsWith(this.pendingPrefix)) {
+            anyMatch = true;
+          }
+          if (this.pendingPrefix.startsWith(openTag)) {
+            // 完整匹配开始标签
+            fullMatch = true;
+            this.inFilterTag = true;
+            this.tagBuffer = this.pendingPrefix;
+            this.pendingPrefix = "";
+            break;
+          }
+        }
+
+        if (fullMatch) {
+          i++;
+          continue;
+        }
+
+        if (!anyMatch) {
+          // 不是标签开头，输出累积的内容
+          result += this.pendingPrefix;
+          this.pendingPrefix = "";
+        }
+        i++;
+        continue;
+      }
+
+      // 如果正在过滤标签内容
+      if (this.inFilterTag) {
+        this.tagBuffer += char;
+
+        if (char === ">") {
+          // 检查是否是自闭合标签 />
+          if (this.tagBuffer.endsWith("/>")) {
+            this.inFilterTag = false;
+            this.tagBuffer = "";
+          } else {
+            // 检查是否是结束标签
+            for (const tag of this.tags) {
+              if (this.tagBuffer.includes(`</${tag}>`)) {
+                this.inFilterTag = false;
+                this.tagBuffer = "";
+                break;
+              }
+            }
+          }
+        }
+        i++;
+        continue;
+      }
+
+      // 检查是否开始一个标签
+      if (char === "<") {
+        this.pendingPrefix = "<";
+        i++;
+        continue;
+      }
+
+      // 普通字符，直接输出
+      result += char;
+      i++;
+    }
+
+    return result;
+  }
+
+  /**
+   * 重置过滤器状态
+   */
+  reset(): void {
+    this.inFilterTag = false;
+    this.tagBuffer = "";
+    this.pendingPrefix = "";
+  }
+
+  /**
+   * 获取待输出的挂起内容（在流结束时调用）
+   */
+  flush(): string {
+    const pending = this.pendingPrefix;
+    this.pendingPrefix = "";
+    return pending;
+  }
+}
+
+/**
+ * 对完整内容进行 tag 过滤（非流式场景）
+ */
+function filterTagsFromContent(content: string, filterTags: string[]): string {
+  if (!filterTags.length) return content;
+
+  const filter = new TagFilter(filterTags);
+  const result = filter.filter(content) + filter.flush();
+  return result;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -165,6 +301,9 @@ export function createOpenAiStreamFromGrokNdjson(
       let lastVideoProgress = -1;
 
       let buffer = "";
+
+      // 创建 Tag 过滤器实例（跨 token 状态保持）
+      const tagFilter = new TagFilter(filteredTags);
 
       const flushStop = () => {
         controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, "", "stop")));
@@ -330,15 +469,18 @@ export function createOpenAiStreamFromGrokNdjson(
             // Text chat stream
             if (Array.isArray(rawToken)) continue;
             if (typeof rawToken !== "string" || !rawToken) continue;
-            let token = rawToken;
 
-            if (filteredTags.some((t) => token.includes(t))) continue;
+            // 使用跨 token Tag 过滤器精确过滤标签内容
+            const token = tagFilter.filter(rawToken);
+            if (!token) continue; // 过滤后为空则跳过
 
             const currentIsThinking = Boolean(grok.isThinking);
             const messageTag = grok.messageTag;
 
             if (thinkingFinished && currentIsThinking) continue;
 
+            // 处理 web 搜索结果（附加到 token 后面）
+            let tokenWithSearch = token;
             if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
               if (currentIsThinking) {
                 if (showThinking) {
@@ -349,7 +491,7 @@ export function createOpenAiStreamFromGrokNdjson(
                     const preview = typeof r.preview === "string" ? r.preview.replace(/\n/g, "") : "";
                     appended += `\n- [${title}](${url} \"${preview}\")`;
                   }
-                  token += `${appended}\n`;
+                  tokenWithSearch += `${appended}\n`;
                 } else {
                   continue;
                 }
@@ -358,8 +500,8 @@ export function createOpenAiStreamFromGrokNdjson(
               }
             }
 
-            let content = token;
-            if (messageTag === "header") content = `\n\n${token}\n\n`;
+            let content = tokenWithSearch;
+            if (messageTag === "header") content = `\n\n${tokenWithSearch}\n\n`;
 
             let shouldSkip = false;
             if (!isThinking && currentIsThinking) {
@@ -471,6 +613,13 @@ export async function parseOpenAiFromGrokNdjson(
     break;
   }
 
+  // 对非流式响应应用 tag 过滤
+  const filteredTags = (settings.filtered_tags ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const filteredContent = filterTagsFromContent(content, filteredTags);
+
   return {
     id: `chatcmpl-${crypto.randomUUID()}`,
     object: "chat.completion",
@@ -479,7 +628,7 @@ export async function parseOpenAiFromGrokNdjson(
     choices: [
       {
         index: 0,
-        message: { role: "assistant", content },
+        message: { role: "assistant", content: filteredContent },
         finish_reason: "stop",
       },
     ],
