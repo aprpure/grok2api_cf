@@ -805,6 +805,25 @@ function parseResponseFormatOrError(raw: unknown, defaultMode: string) {
   return { value: resolved };
 }
 
+function resolveImageResponseFormatByMethodOrError(
+  raw: unknown,
+  defaultMode: string,
+  imageMethod: ReturnType<typeof resolveImageGenerationMethod>,
+) {
+  const missing =
+    raw === undefined ||
+    raw === null ||
+    (typeof raw === "string" && raw.trim().length === 0);
+  const normalizedDefault = String(defaultMode || "url").trim().toLowerCase();
+  const effectiveDefault =
+    missing &&
+    imageMethod === IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL &&
+    normalizedDefault === "url"
+      ? "b64_json"
+      : defaultMode;
+  return parseResponseFormatOrError(raw, effectiveDefault);
+}
+
 openAiRoutes.get("/models", async (c) => {
   const ts = Math.floor(Date.now() / 1000);
   const data = Object.entries(MODEL_CONFIG).map(([id, cfg]) => ({
@@ -1071,9 +1090,11 @@ openAiRoutes.post("/images/generations", async (c) => {
     }
 
     const settingsBundle = await getSettings(c.env);
-    const parsedResponseFormat = parseResponseFormatOrError(
+    const imageMethod = imageGenerationMethod(settingsBundle);
+    const parsedResponseFormat = resolveImageResponseFormatByMethodOrError(
       body.response_format,
       imageFormatDefault(settingsBundle),
+      imageMethod,
     );
     if ("error" in parsedResponseFormat) {
       return c.json(
@@ -1084,7 +1105,6 @@ openAiRoutes.post("/images/generations", async (c) => {
     const responseFormat = parsedResponseFormat.value;
     const responseField = responseFieldName(responseFormat);
     const baseUrl = baseUrlFromSettings(settingsBundle, origin);
-    const imageMethod = imageGenerationMethod(settingsBundle);
     const cf = normalizeCfCookie(settingsBundle.grok.cf_clearance ?? "");
 
     const quota = await enforceQuota({
@@ -1317,9 +1337,11 @@ openAiRoutes.post("/images/edits", async (c) => {
     }
 
     const settingsBundle = await getSettings(c.env);
-    const parsedResponseFormat = parseResponseFormatOrError(
+    const imageMethod = imageGenerationMethod(settingsBundle);
+    const parsedResponseFormat = resolveImageResponseFormatByMethodOrError(
       form.get("response_format"),
       imageFormatDefault(settingsBundle),
+      imageMethod,
     );
     if ("error" in parsedResponseFormat) {
       return c.json(
@@ -1330,7 +1352,6 @@ openAiRoutes.post("/images/edits", async (c) => {
     const responseFormat = parsedResponseFormat.value;
     const responseField = responseFieldName(responseFormat);
     const baseUrl = baseUrlFromSettings(settingsBundle, origin);
-    const imageMethod = imageGenerationMethod(settingsBundle);
 
     const quota = await enforceQuota({
       env: c.env,
