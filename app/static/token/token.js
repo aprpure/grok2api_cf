@@ -412,6 +412,18 @@ function changePageSize() {
 function goToPage(action) {
   const totalPages = Math.ceil(filteredTokens.length / pageSize) || 1;
   
+  // Clear selections from current page before navigating
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filteredTokens.length);
+  const pageTokens = filteredTokens.slice(startIdx, endIdx);
+  const currentPageKeys = new Set(pageTokens.map((t) => getTokenKey(t.token)));
+  
+  flatTokens.forEach((t) => {
+    if (currentPageKeys.has(getTokenKey(t.token))) {
+      t._selected = false;
+    }
+  });
+  
   switch (action) {
     case 'first':
       currentPage = 1;
