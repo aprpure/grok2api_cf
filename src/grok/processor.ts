@@ -1,4 +1,5 @@
 import type { GrokSettings, GlobalSettings } from "../settings";
+import { StreamIdleTimeoutError, UpstreamError, isHttp2StreamError } from "../utils/errors";
 
 type GrokNdjson = Record<string, unknown>;
 
@@ -276,6 +277,9 @@ export function createOpenAiStreamFromGrokNdjson(
   const firstTimeoutMs = Math.max(0, (settings.stream_first_response_timeout ?? 30) * 1000);
   const chunkTimeoutMs = Math.max(0, (settings.stream_chunk_timeout ?? 120) * 1000);
   const totalTimeoutMs = Math.max(0, (settings.stream_total_timeout ?? 600) * 1000);
+  // 新增：独立的空闲超时配置（用于更细粒度控制）
+  const idleTimeoutMs = Math.max(0, (settings.stream_idle_timeout ?? 45) * 1000);
+  const videoIdleTimeoutMs = Math.max(0, (settings.video_idle_timeout ?? 90) * 1000);
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -295,6 +299,7 @@ export function createOpenAiStreamFromGrokNdjson(
 
       let currentModel = "grok-4-mini-thinking-tahoe";
       let isImage = false;
+      let isVideo = false; // 标记当前是否在处理视频流
       let isThinking = false;
       let thinkingFinished = false;
       let videoProgressStarted = false;
@@ -328,6 +333,13 @@ export function createOpenAiStreamFromGrokNdjson(
             return;
           }
           const idle = now - lastChunkTime;
+          // 根据是否为视频流选择不同的空闲超时阈值
+          const currentIdleTimeoutMs = isVideo ? videoIdleTimeoutMs : idleTimeoutMs;
+          if (firstReceived && currentIdleTimeoutMs > 0 && idle > currentIdleTimeoutMs) {
+            // 抛出独立的空闲超时错误，便于上层区分处理
+            throw new StreamIdleTimeoutError(idle / 1000);
+          }
+          // 保留原有的 chunkTimeout 检测作为后备
           if (firstReceived && idle > chunkTimeoutMs) {
             flushStop();
             if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
@@ -390,6 +402,7 @@ export function createOpenAiStreamFromGrokNdjson(
             // Video generation stream
             const videoResp = grok.streamingVideoGenerationResponse;
             if (videoResp) {
+              isVideo = true; // 标记当前为视频流，使用更长的空闲超时
               const progress = typeof videoResp.progress === "number" ? videoResp.progress : 0;
               const videoUrl = typeof videoResp.videoUrl === "string" ? videoResp.videoUrl : "";
               const thumbUrl = typeof videoResp.thumbnailImageUrl === "string" ? videoResp.thumbnailImageUrl : "";
@@ -524,15 +537,31 @@ export function createOpenAiStreamFromGrokNdjson(
         if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
         controller.close();
       } catch (e) {
-        finalStatus = 500;
-        controller.enqueue(
-          encoder.encode(
-            makeChunk(id, created, currentModel, `处理错误: ${e instanceof Error ? e.message : String(e)}`, "error"),
-          ),
-        );
-        controller.enqueue(encoder.encode(makeDone()));
-        if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
-        controller.close();
+        // 区分处理不同类型的错误
+        if (e instanceof StreamIdleTimeoutError) {
+          // 流空闲超时：优雅地结束流，而不是报告为错误
+          console.warn(`[StreamIdleTimeout] ${isVideo ? "视频" : "文本"}流空闲超时: ${e.idleSeconds}s`);
+          flushStop();
+          if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
+          controller.close();
+        } else if (isHttp2StreamError(e)) {
+          // HTTP/2 流错误：通常是连接问题，优雅结束
+          console.warn(`[Http2StreamError] HTTP/2 流错误: ${e instanceof Error ? e.message : String(e)}`);
+          flushStop();
+          if (opts.onFinish) await opts.onFinish({ status: 502, duration: (Date.now() - startTime) / 1000 });
+          controller.close();
+        } else {
+          // 其他错误：报告为处理错误
+          finalStatus = 500;
+          controller.enqueue(
+            encoder.encode(
+              makeChunk(id, created, currentModel, `处理错误: ${e instanceof Error ? e.message : String(e)}`, "error"),
+            ),
+          );
+          controller.enqueue(encoder.encode(makeDone()));
+          if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
+          controller.close();
+        }
       } finally {
         try {
           reader.releaseLock();

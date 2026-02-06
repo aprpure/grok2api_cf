@@ -28,6 +28,8 @@ export interface GrokSettings {
   stream_first_response_timeout?: number;
   stream_chunk_timeout?: number;
   stream_total_timeout?: number;
+  stream_idle_timeout?: number; // 流空闲超时（秒），默认 45
+  video_idle_timeout?: number; // 视频生成专用空闲超时（秒），默认 90
   retry_status_codes?: number[];
 }
 
@@ -104,6 +106,8 @@ const DEFAULTS: SettingsBundle = {
     stream_first_response_timeout: 30,
     stream_chunk_timeout: 120,
     stream_total_timeout: 600,
+    stream_idle_timeout: 45,
+    video_idle_timeout: 90,
     retry_status_codes: [401, 429, 403],
   },
   token: {
