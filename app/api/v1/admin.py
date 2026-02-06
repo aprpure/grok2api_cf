@@ -144,6 +144,86 @@ def _normalize_limit(v: Any) -> int:
         return -1
 
 
+def _pool_to_token_type(pool_name: str) -> str:
+    return "ssoSuper" if str(pool_name or "").strip() == "ssoSuper" else "sso"
+
+
+def _parse_quota_value(v: Any) -> tuple[int, bool]:
+    if v is None or v == "":
+        return -1, False
+    try:
+        n = int(v)
+    except Exception:
+        return -1, False
+    if n < 0:
+        return -1, False
+    return n, True
+
+
+def _safe_int(v: Any, default: int = 0) -> int:
+    try:
+        return int(v)
+    except Exception:
+        return default
+
+
+def _normalize_token_status(raw_status: Any) -> str:
+    s = str(raw_status or "active").strip().lower()
+    if s == "expired":
+        return "invalid"
+    if s in ("active", "cooling", "invalid", "disabled"):
+        return s
+    return "active"
+
+
+def _normalize_admin_token_item(pool_name: str, item: Any) -> dict | None:
+    token_type = _pool_to_token_type(pool_name)
+
+    if isinstance(item, str):
+        token = item.strip()
+        if not token:
+            return None
+        if token.startswith("sso="):
+            token = token[4:]
+        return {
+            "token": token,
+            "status": "active",
+            "quota": 0,
+            "quota_known": False,
+            "heavy_quota": -1,
+            "heavy_quota_known": False,
+            "token_type": token_type,
+            "note": "",
+            "fail_count": 0,
+            "use_count": 0,
+        }
+
+    if not isinstance(item, dict):
+        return None
+
+    token = str(item.get("token") or "").strip()
+    if not token:
+        return None
+    if token.startswith("sso="):
+        token = token[4:]
+
+    quota, quota_known = _parse_quota_value(item.get("quota"))
+    heavy_quota, heavy_quota_known = _parse_quota_value(item.get("heavy_quota"))
+
+    return {
+        "token": token,
+        "status": _normalize_token_status(item.get("status")),
+        "quota": quota if quota_known else 0,
+        "quota_known": quota_known,
+        "heavy_quota": heavy_quota,
+        "heavy_quota_known": heavy_quota_known,
+        "token_type": token_type,
+        "note": str(item.get("note") or ""),
+        "fail_count": _safe_int(item.get("fail_count") or 0, 0),
+        "use_count": _safe_int(item.get("use_count") or 0, 0),
+    }
+
+
 @router.get("/api/v1/admin/keys", dependencies=[Depends(verify_api_key)])
 async def list_api_keys():
     """List API keys + daily usage/remaining (for admin UI)."""
@@ -227,6 +307,10 @@ async def update_api_key(data: dict):
     if not key:
         raise HTTPException(status_code=400, detail="Missing key")
 
+    existing = api_key_manager.get_key_row(key)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Key not found")
+
     if "name" in data and data.get("name") is not None:
         name = str(data.get("name") or "").strip()
         if name:
@@ -291,7 +375,17 @@ async def get_tokens_api():
     """获取所有 Token"""
     storage = get_storage()
     tokens = await storage.load_tokens()
-    return tokens or {}
+    data = tokens if isinstance(tokens, dict) else {}
+    out: dict[str, list[dict]] = {}
+    for pool_name, raw_items in data.items():
+        arr = raw_items if isinstance(raw_items, list) else []
+        normalized: list[dict] = []
+        for item in arr:
+            obj = _normalize_admin_token_item(pool_name, item)
+            if obj:
+                normalized.append(obj)
+        out[str(pool_name)] = normalized
+    return out
 
 @router.post("/api/v1/admin/tokens", dependencies=[Depends(verify_api_key)])
 async def update_tokens_api(data: dict):

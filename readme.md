@@ -19,6 +19,7 @@
 
 - 部署与配置说明：`README.cloudflare.md`
 - 一键部署工作流：`.github/workflows/cloudflare-workers.yml`
+  - 一键部署前置条件：仓库需配置 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`。
 
 ## 使用说明
 
@@ -61,6 +62,9 @@ python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 
 > 可选：复制 `.env.example` 为 `.env`，可配置端口/日志/存储等；并可通过 `COMPOSE_PROFILES` 一键启用 `redis/pgsql/mysql`（见 `.env.example` 内示例）。
 
+> 部署一致性说明：本地（FastAPI）/ Docker / Cloudflare Workers 共用同一套管理功能语义（Token 筛选、API Key 管理、后台管理接口语义一致）。
+> Cloudflare 可通过 `.github/workflows/cloudflare-workers.yml` 一键部署（需先配置上述两个 Secrets），Docker 仍保持 `docker compose up -d` 一键启动。
+
 ### 管理面板
 
 访问地址：`http://<host>:8000/login`
@@ -69,9 +73,46 @@ python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 
 常用页面：
 - `http://<host>:8000/admin/token`：Token 管理（导入/导出/批量操作/自动注册）
+- `http://<host>:8000/admin/keys`：API Key 管理（统计/筛选/新增/编辑/删除）
 - `http://<host>:8000/admin/datacenter`：数据中心（常用指标 + 日志查看）
 - `http://<host>:8000/admin/config`：配置管理（含自动注册所需配置）
 - `http://<host>:8000/admin/cache`：缓存管理（本地缓存 + 在线资产）
+
+### 手机端适配（全站）
+
+- 已覆盖页面：`/login`、`/admin/token`、`/admin/keys`、`/admin/cache`、`/admin/config`、`/admin/datacenter`、`/chat`、`/admin/chat`。
+- 后台顶部导航在手机端改为抽屉菜单（支持：打开/关闭、点击遮罩关闭、点击菜单项后自动收起、`Esc` 关闭）。
+- 表格在手机端保持“横向滚动优先”，不压缩列结构（Token/API Key/缓存表格行为一致）。
+- Toast 在窄屏改为左右边距自适应，不再固定最小宽度导致溢出。
+- 底部批量操作条（Token/缓存）在手机端改为全宽底部卡片样式，减少遮挡主操作。
+- 三部署一致性：上述适配使用同一套静态资源，在本地 FastAPI / Docker / Cloudflare Workers 下行为一致。
+
+### Token 管理增强（筛选 + 状态判定）
+
+- 支持类型筛选：`sso`、`supersso`（可组合）。
+- 支持状态筛选：`活跃`、`失效`、`额度用尽`（可组合，按并集语义）。
+- 提供“结果计数”和“清空筛选”。
+- 筛选后勾选/全选/批量刷新/批量删除均基于 Token 唯一值，避免过滤后行索引错位导致误操作。
+- 状态判定规则：
+  - `失效`：`status` 为 `invalid/expired/disabled`
+  - `额度用尽`：`status = cooling`，或（`quota_known = true` 且 `quota <= 0`），或（super 且 `heavy_quota_known = true` 且 `heavy_quota <= 0`）
+  - `活跃`：非失效且非额度用尽
+- 类型映射规则：`ssoBasic -> sso`，`ssoSuper -> supersso`（接口字段 `token_type` 为 `sso` / `ssoSuper`）。
+
+### API Key 管理增强
+
+- 页面新增统计卡片：总数、启用、禁用、今日额度用尽。
+- 工具栏支持：名称/Key 搜索、状态筛选（全部/启用/禁用/额度用尽）、重置筛选。
+- 新增 API Key 弹窗增强：
+  - 居中悬浮弹窗（遮罩层 + 缩放入场动画）
+  - 支持点击遮罩关闭、`Esc` 关闭
+  - 移动端弹窗内容可滚动且网格布局自适应
+  - 自动生成 Key
+  - 额度预设（推荐/不限）
+  - 提交中禁用按钮，防止重复提交
+  - 创建成功后支持一键复制 Key
+- 错误提示优化：前端优先展示后端 `detail/error/message`，避免“创建失败/更新失败”无上下文。
+- 更新不存在的 Key 会返回 `404`（FastAPI 与 Workers 一致）。
 
 ### 自动注册（Token 管理 -> 添加 -> 自动注册）
 
@@ -204,6 +245,7 @@ curl http://localhost:8000/v1/images/generations \
 | `prompt` | string  | 图像描述提示词   | -                                            |
 | `n`      | integer | 生成数量         | `1` - `10` (流式模式仅限 `1` 或 `2`) |
 | `stream` | boolean | 是否开启流式输出 | `true`, `false`                          |
+| `response_format` | string | 图片返回格式 | `url`, `base64`, `b64_json`（默认跟随 `app.image_format`） |
 
 注：除上述外的其他参数将自动丢弃并忽略
 
@@ -212,6 +254,54 @@ curl http://localhost:8000/v1/images/generations \
 </details>
 
 <br>
+
+### `POST /v1/images/edits`
+
+> 图像编辑接口（`multipart/form-data`）
+
+```bash
+curl http://localhost:8000/v1/images/edits \
+  -H "Authorization: Bearer $GROK2API_API_KEY" \
+  -F "model=grok-imagine-1.0" \
+  -F "prompt=给这只猫加一副太阳镜" \
+  -F "image=@./cat.png" \
+  -F "n=1" \
+  -F "response_format=url"
+```
+
+<details>
+<summary>支持的请求参数</summary>
+
+<br>
+
+| 字段 | 类型 | 说明 | 可用参数 |
+| :--- | :--- | :--- | :--- |
+| `model` | string | 图像模型名 | `grok-imagine-1.0` |
+| `prompt` | string | 编辑提示词 | - |
+| `image` | file[] | 待编辑图片（最多 16 张） | `png`, `jpg`, `jpeg`, `webp` |
+| `n` | integer | 生成数量 | `1` - `10`（流式仅 `1` 或 `2`） |
+| `stream` | boolean | 是否开启流式输出 | `true`, `false` |
+| `response_format` | string | 图片返回格式 | `url`, `base64`, `b64_json`（默认跟随 `app.image_format`） |
+
+注：`mask` 参数当前未实现，会被忽略。
+
+<br>
+
+</details>
+
+<br>
+
+### 后台管理 API 兼容变更（FastAPI + Workers）
+
+1. `GET /api/v1/admin/tokens`（增量兼容，保留旧字段）新增：
+   - `token_type`
+   - `quota_known`
+   - `heavy_quota`
+   - `heavy_quota_known`
+2. `POST /api/v1/admin/keys/update`：
+   - 当 key 不存在时返回 `404`（此前部分实现可能返回成功）。
+3. 额度语义补充：
+   - `quota_known = false` 表示额度未知（例如 `remaining_queries = -1` 场景），不应直接判定为“额度用尽”。
 
 ## 参数配置
 
@@ -235,7 +325,7 @@ curl http://localhost:8000/v1/images/generations \
 |                       | `admin_username`           | 后台账号     | 登录 Grok2API 服务管理后台的用户名。                 | `admin`                                                 |
 |                       | `app_key`                  | 后台密码     | 登录 Grok2API 服务管理后台的密码，请妥善保管。       | `admin`                                                 |
 |                       | `api_key`                  | API 密钥     | 调用 Grok2API 服务所需的 Bearer Token，请妥善保管。  | `""`                                                    |
-|                       | `image_format`             | 图片格式     | 生成的图片格式（url 或 base64）。                    | `url`                                                   |
+|                       | `image_format`             | 图片格式     | 生成的图片格式（url / base64 / b64_json）。          | `url`                                                   |
 |                       | `video_format`             | 视频格式     | 生成的视频格式（仅支持 url）。                       | `url`                                                   |
 | **grok**        | `temporary`                | 临时对话     | 是否启用临时对话模式。                               | `true`                                                  |
 |                       | `stream`                   | 流式响应     | 是否默认启用流式输出。                               | `true`                                                  |
@@ -249,6 +339,7 @@ curl http://localhost:8000/v1/images/generations \
 |                       | `cf_clearance`             | CF Clearance | Cloudflare 验证 Cookie，用于验证 Cloudflare 的验证。 | `""`                                                    |
 |                       | `max_retry`                | 最大重试     | 请求 Grok 服务失败时的最大重试次数。                 | `3`                                                     |
 |                       | `retry_status_codes`       | 重试状态码   | 触发重试的 HTTP 状态码列表。                         | `[401, 429, 403]`                                       |
+|                       | `image_generation_method`  | 生图调用方式 | 生图调用方式（`legacy` 旧方法；`imagine_ws_experimental` 新方法，实验性）。 | `legacy`                                                |
 | **token**       | `auto_refresh`             | 自动刷新     | 是否开启 Token 自动刷新机制。                        | `true`                                                  |
 |                       | `refresh_interval_hours`   | 刷新间隔     | Token 刷新的时间间隔（小时）。                       | `8`                                                     |
 |                       | `fail_threshold`           | 失败阈值     | 单个 Token 连续失败多少次后被标记为不可用。          | `5`                                                     |
@@ -263,6 +354,13 @@ curl http://localhost:8000/v1/images/generations \
 |                       | `admin_assets_batch_size`  | 管理端批量   | 管理端在线资产统计/清理批量并发数量。推荐 10。       | `10`                                                    |
 
 <br>
+
+## 本次修复
+
+- 修复 Token 页 `refreshStatus` 依赖全局 `event` 的问题，改为显式传入按钮引用，避免不同运行环境下按钮状态异常。
+- 新增 Token 统一归一化（`normalizeSsoToken`），修复 `sso=` 前缀导致的去重、导入、批量选择不一致问题。
+- 修复 API Key 更新接口“key 不存在仍返回成功”问题，统一为 `404`。
+- 优化 Token/API Key 页面错误提示，优先展示后端具体错误（`detail/error/message`）。
 
 ## Star History
 

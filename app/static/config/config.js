@@ -25,7 +25,7 @@ const LOCALE_MAP = {
     "admin_username": { title: "后台账号", desc: "登录 Grok2API 服务管理后台的用户名，默认 admin。" },
     "app_key": { title: "后台密码", desc: "登录 Grok2API 服务管理后台的密码，请妥善保管。" },
     "app_url": { title: "应用地址", desc: "当前 Grok2API 服务的外部访问 URL，用于文件链接访问。" },
-    "image_format": { title: "图片格式", desc: "生成的图片格式（url 或 base64）。" },
+    "image_format": { title: "图片格式", desc: "生成的图片格式（url / base64 / b64_json）。" },
     "video_format": { title: "视频格式", desc: "生成的视频格式（仅支持 url）。" }
   },
   "grok": {
@@ -41,7 +41,8 @@ const LOCALE_MAP = {
     "asset_proxy_url": { title: "资源代理 URL", desc: "代理请求到 Grok 官网的静态资源（图片/视频）地址。" },
     "cf_clearance": { title: "CF Clearance", desc: "Cloudflare 验证 Cookie，用于验证 Cloudflare 的验证。" },
     "max_retry": { title: "最大重试", desc: "请求 Grok 服务失败时的最大重试次数。" },
-    "retry_status_codes": { title: "重试状态码", desc: "触发重试的 HTTP 状态码列表。" }
+    "retry_status_codes": { title: "重试状态码", desc: "触发重试的 HTTP 状态码列表。" },
+    "image_generation_method": { title: "生图调用方式", desc: "旧方法稳定；新方法为实验性方法。" }
   },
   "token": {
     "label": "Token 池设置",
@@ -212,7 +213,28 @@ function renderConfig(data) {
 
         const opts = [
           { val: 'url', text: 'URL' },
-          { val: 'base64', text: 'Base64' }
+          { val: 'base64', text: 'Base64' },
+          { val: 'b64_json', text: 'b64_json' }
+        ];
+
+        opts.forEach(opt => {
+          const option = document.createElement('option');
+          option.value = opt.val;
+          option.text = opt.text;
+          if (val === opt.val) option.selected = true;
+          input.appendChild(option);
+        });
+        inputWrapper.appendChild(input);
+      }
+      else if (key === 'image_generation_method') {
+        input = document.createElement('select');
+        input.className = 'geist-input h-[34px]';
+        input.dataset.section = section;
+        input.dataset.key = key;
+
+        const opts = [
+          { val: 'legacy', text: '旧方法（默认）' },
+          { val: 'imagine_ws_experimental', text: '新方法（实验性）' }
         ];
 
         opts.forEach(opt => {
@@ -260,12 +282,12 @@ function renderConfig(data) {
 
         if (key === 'api_key' || key === 'app_key') {
           const wrapper = document.createElement('div');
-          wrapper.className = 'flex items-center gap-2';
+          wrapper.className = 'config-secret-row';
 
-          input.className = 'geist-input flex-1 h-[34px]';
+          input.className = 'geist-input';
 
           const copyBtn = document.createElement('button');
-          copyBtn.className = 'flex-none w-[32px] h-[32px] flex items-center justify-center bg-black text-white rounded-md hover:opacity-80 transition-opacity';
+          copyBtn.className = 'config-copy-btn';
           copyBtn.type = 'button';
           copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
 

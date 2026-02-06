@@ -5,7 +5,7 @@ import { nowMs } from "./utils/time";
 export interface GlobalSettings {
   base_url?: string;
   log_level?: string;
-  image_mode?: "url" | "base64";
+  image_mode?: "url" | "base64" | "b64_json";
   admin_username?: string;
   admin_password?: string;
   image_cache_max_size_mb?: number;
@@ -31,6 +31,7 @@ export interface GrokSettings {
   stream_idle_timeout?: number; // 流空闲超时（秒），默认 45
   video_idle_timeout?: number; // 视频生成专用空闲超时（秒），默认 90
   retry_status_codes?: number[];
+  image_generation_method?: "legacy" | "imagine_ws_experimental";
 }
 
 export interface TokenSettings {
@@ -109,6 +110,7 @@ const DEFAULTS: SettingsBundle = {
     stream_idle_timeout: 45,
     video_idle_timeout: 90,
     retry_status_codes: [401, 429, 403],
+    image_generation_method: "legacy",
   },
   token: {
     auto_refresh: true,
