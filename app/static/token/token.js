@@ -535,13 +535,13 @@ function renderTable() {
     updatePaginationUI();
     return;
   }
-  if (displayTokens.length === 0) {
+  if (filteredTokens.length === 0) {
     emptyState.innerText = '当前筛选无结果。';
     emptyState.classList.remove('hidden');
     updateSelectionState();
+    updatePaginationUI();
     return;
   }
-  emptyState.innerText = '暂无 Token，请点击右上角导入或添加。';
   emptyState.classList.add('hidden');
 
   // Calculate pagination
