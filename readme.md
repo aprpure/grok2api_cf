@@ -379,6 +379,8 @@ curl http://localhost:8000/v1/images/edits \
 |                       | `fail_threshold`           | 失败阈值     | 单个 Token 连续失败多少次后被标记为不可用。          | `5`                                                     |
 |                       | `save_delay_ms`            | 保存延迟     | Token 变更合并写入的延迟（毫秒）。                   | `500`                                                   |
 |                       | `reload_interval_sec`      | 一致性刷新   | 多 worker 场景下 Token 状态刷新间隔（秒）。          | `30`                                                    |
+|                       | `nsfw_refresh_concurrency` | NSFW 刷新并发 | 同意协议/年龄/NSFW 刷新的默认并发数。                | `10`                                                    |
+|                       | `nsfw_refresh_retries`     | NSFW 刷新重试 | 刷新失败后的额外重试次数（不含首次）。               | `3`                                                     |
 | **cache**       | `enable_auto_clean`        | 自动清理     | 是否启用缓存自动清理，开启后按上限自动回收。         | `true`                                                  |
 |                       | `limit_mb`                 | 清理阈值     | 缓存大小阈值（MB），超过阈值会触发清理。             | `1024`                                                  |
 | **performance** | `assets_max_concurrent`    | 资产并发上限 | 资源上传/下载/列表的并发上限。推荐 25。              | `25`                                                    |
@@ -395,6 +397,16 @@ curl http://localhost:8000/v1/images/edits \
 - 新增 Token 统一归一化（`normalizeSsoToken`），修复 `sso=` 前缀导致的去重、导入、批量选择不一致问题。
 - 修复 API Key 更新接口“key 不存在仍返回成功”问题，统一为 `404`。
 - 优化 Token/API Key 页面错误提示，优先展示后端具体错误（`detail/error/message`）。
+
+## 本次更新补充（本地/Docker）
+
+- 新增：导入/手动添加/外部写入新增 Token 后，会在后台自动执行 `同意协议 + 设置年龄 + 开启 NSFW`。
+- 新增：Token 管理页增加「一键刷新 NSFW」按钮，默认对全部 Token 执行上述流程。
+- 新增：批量刷新默认并发 `10`，失败后额外重试 `3` 次；重试耗尽自动标记为失效。
+- 新增配置：
+  - `token.nsfw_refresh_concurrency`（默认 `10`）
+  - `token.nsfw_refresh_retries`（默认 `3`）
+- 说明：该功能仅在 `python-fastapi`（本地/Docker）开放；`cloudflare-workers` 侧不展示该按钮。
 
 ## Star History
 
