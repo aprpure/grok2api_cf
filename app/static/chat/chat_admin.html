@@ -10,7 +10,7 @@
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
   <link href="/static/common/common.css?v=3" rel="stylesheet">
-  <link href="/static/chat/chat.css?v=3" rel="stylesheet">
+  <link href="/static/chat/chat.css?v=4" rel="stylesheet">
   <link href="/static/common/toast.css" rel="stylesheet">
   <script>
     window.__CHAT_ADMIN__ = true;
@@ -22,25 +22,97 @@
   <div id="app-header"></div>
 
   <main class="flex-1 container mx-auto max-w-5xl px-6 py-6 fade-in space-y-4">
-    <div class="card">
-      <div class="card-title">连接配置</div>
-      <div class="grid grid-cols-12 gap-3 items-end">
-        <div class="col-span-12 md:col-span-5">
-          <label class="field-label">API Key（Bearer）</label>
-          <input id="api-key-input" type="password" class="geist-input font-mono" placeholder="优先从后台配置自动填充，可手动覆盖" />
-          <div class="text-xs text-[var(--accents-5)] mt-1">后台入口会尝试读取“配置管理 -> API 密钥”自动填充。</div>
+    <div class="config-card">
+      <div class="config-header">
+        <div class="config-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
         </div>
-        <div class="col-span-12 md:col-span-4">
-          <label class="field-label">模型</label>
-          <select id="model-select" class="geist-input h-[34px]"></select>
+        <div class="config-title-group">
+          <div class="config-title">连接配置</div>
+          <div class="config-subtitle">配置 API 密钥和模型参数</div>
         </div>
-        <div class="col-span-6 md:col-span-1 flex items-center gap-2">
-          <input id="stream-toggle" type="checkbox" class="checkbox" checked>
-          <label for="stream-toggle" class="text-sm">Stream</label>
+      </div>
+      
+      <div class="config-body">
+        <div class="config-grid">
+          <!-- API Key 输入区域 -->
+          <div class="config-field config-field-api">
+            <div class="field-header">
+              <label class="field-label-modern" for="api-key-input">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                </svg>
+                API Key（Bearer）
+              </label>
+            </div>
+            <div class="input-wrapper">
+              <input id="api-key-input" type="password" class="config-input font-mono" placeholder="优先从后台配置自动填充，可手动覆盖" />
+              <button type="button" class="input-addon" onclick="togglePasswordVisibility()" title="显示/隐藏密钥">
+                <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <div class="field-hint">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              后台入口会尝试读取"配置管理 → API 密钥"自动填充。
+            </div>
+          </div>
+          
+          <!-- 模型选择区域 -->
+          <div class="config-field config-field-model">
+            <div class="field-header">
+              <label class="field-label-modern" for="model-select">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+                模型
+              </label>
+            </div>
+            <select id="model-select" class="config-select"></select>
+          </div>
+          
+          <!-- Stream 开关区域 -->
+          <div class="config-field config-field-stream">
+            <label class="stream-toggle-wrapper" for="stream-toggle">
+              <div class="stream-toggle-track">
+                <input id="stream-toggle" type="checkbox" class="stream-checkbox" checked>
+                <div class="stream-toggle-thumb"></div>
+              </div>
+              <div class="stream-label-group">
+                <span class="stream-label">Stream</span>
+                <span class="stream-desc">流式响应</span>
+              </div>
+            </label>
+          </div>
         </div>
-        <div class="col-span-12 md:col-span-2 flex flex-wrap justify-end gap-2">
-          <button class="geist-button-outline text-xs px-3" onclick="saveApiKey()">保存</button>
-          <button class="geist-button-danger text-xs px-3" onclick="clearApiKey()">清除</button>
+        
+        <!-- 操作按钮区域 -->
+        <div class="config-actions">
+          <button class="config-btn config-btn-save" onclick="saveApiKey()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            保存配置
+          </button>
+          <button class="config-btn config-btn-clear" onclick="clearApiKey()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            清除
+          </button>
         </div>
       </div>
     </div>
