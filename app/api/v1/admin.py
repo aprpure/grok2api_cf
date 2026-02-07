@@ -149,6 +149,8 @@ async def admin_imagine_ws(websocket: WebSocket):
             run_task.cancel()
             try:
                 await run_task
+            except asyncio.CancelledError:
+                pass
             except Exception:
                 pass
         run_task = None
@@ -301,6 +303,8 @@ async def admin_imagine_ws(websocket: WebSocket):
                 )
     except WebSocketDisconnect:
         logger.debug("WebSocket disconnected by client")
+    except asyncio.CancelledError:
+        logger.debug("WebSocket handler cancelled")
     except Exception as e:
         logger.warning(f"WebSocket error: {e}")
     finally:
