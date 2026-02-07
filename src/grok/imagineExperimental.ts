@@ -4,6 +4,12 @@ import type { GrokSettings } from "../settings";
 
 export const IMAGE_METHOD_LEGACY = "legacy" as const;
 export const IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL = "imagine_ws_experimental" as const;
+const IMAGE_METHOD_ALIASES: Record<string, ImageGenerationMethod> = {
+  imagine_ws: IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+  experimental: IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+  new: IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+  new_method: IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+};
 
 export type ImageGenerationMethod =
   | typeof IMAGE_METHOD_LEGACY
@@ -20,12 +26,44 @@ export function resolveImageGenerationMethod(raw: unknown): ImageGenerationMetho
     .trim()
     .toLowerCase();
   if (value === IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL) return IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL;
+  if (IMAGE_METHOD_ALIASES[value]) return IMAGE_METHOD_ALIASES[value];
   return IMAGE_METHOD_LEGACY;
+}
+
+const ALLOWED_ASPECT_RATIOS = new Set(["16:9", "9:16", "1:1", "2:3", "3:2"]);
+const SIZE_TO_RATIO: Record<string, string> = {
+  "1024x1024": "1:1",
+  "512x512": "1:1",
+  "1024x576": "16:9",
+  "1280x720": "16:9",
+  "1536x864": "16:9",
+  "576x1024": "9:16",
+  "720x1280": "9:16",
+  "864x1536": "9:16",
+  "1024x1536": "2:3",
+  "512x768": "2:3",
+  "768x1024": "2:3",
+  "1536x1024": "3:2",
+  "768x512": "3:2",
+  "1024x768": "3:2",
+};
+
+export function resolveAspectRatio(size: unknown): string {
+  const value = String(size ?? "")
+    .trim()
+    .toLowerCase();
+  if (ALLOWED_ASPECT_RATIOS.has(value)) return value;
+  return SIZE_TO_RATIO[value] ?? "2:3";
 }
 
 export interface ImagineWsProgress {
   index: number;
   progress: number;
+}
+
+export interface ImagineWsCompleted {
+  index: number;
+  url: string;
 }
 
 function clampProgress(input: unknown): number | null {
@@ -92,7 +130,7 @@ function isCompleted(msg: WsJson, progress: number | null): boolean {
   return progress !== null && progress >= 100;
 }
 
-function buildImagineWsPayload(prompt: string, requestId: string): WsJson {
+function buildImagineWsPayload(prompt: string, requestId: string, aspectRatio: string): WsJson {
   return {
     type: "conversation.item.create",
     timestamp: Date.now(),
@@ -109,7 +147,7 @@ function buildImagineWsPayload(prompt: string, requestId: string): WsJson {
             enable_nsfw: true,
             skip_upsampler: false,
             is_initial: false,
-            aspect_ratio: "2:3",
+            aspect_ratio: aspectRatio,
           },
         },
       ],
@@ -123,10 +161,13 @@ export async function generateImagineWs(args: {
   cookie: string;
   settings: GrokSettings;
   timeoutMs?: number;
+  aspectRatio?: string;
   progressCb?: (progress: ImagineWsProgress) => void | Promise<void>;
+  completedCb?: (completed: ImagineWsCompleted) => void | Promise<void>;
 }): Promise<string[]> {
   const timeoutMs = Math.max(10_000, Number(args.timeoutMs ?? 120_000));
   const targetCount = Math.max(1, Math.floor(Number(args.n || 1)));
+  const aspectRatio = resolveAspectRatio(args.aspectRatio);
   const requestId = crypto.randomUUID();
 
   const headers = getDynamicHeaders(args.settings, "/ws/imagine/listen");
@@ -145,7 +186,7 @@ export async function generateImagineWs(args: {
   }
 
   ws.accept();
-  ws.send(JSON.stringify(buildImagineWsPayload(args.prompt, requestId)));
+  ws.send(JSON.stringify(buildImagineWsPayload(args.prompt, requestId, aspectRatio)));
 
   const imageIndexes = new Map<string, number>();
   const finalUrls = new Map<string, string>();
@@ -184,6 +225,11 @@ export async function generateImagineWs(args: {
       const imageUrl = extractUrl(msg);
       if (imageUrl && isCompleted(msg, progress)) {
         if (!finalUrls.has(imageId)) finalUrls.set(imageId, imageUrl);
+        if (args.completedCb) {
+          Promise.resolve(args.completedCb({ index: imageIndex, url: imageUrl })).catch(() => {
+            // ignore callback failures
+          });
+        }
         if (finalUrls.size >= targetCount) finish();
       }
     };

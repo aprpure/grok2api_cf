@@ -27,18 +27,28 @@ from app.services.grok.chat import BROWSER, CHAT_API, ChatRequestBuilder
 IMAGE_METHOD_LEGACY = "legacy"
 IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL = "imagine_ws_experimental"
 IMAGE_METHODS = {IMAGE_METHOD_LEGACY, IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL}
+IMAGE_METHOD_ALIASES = {
+    "imagine_ws": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "experimental": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "new": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "new_method": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+}
 
 IMAGINE_WS_API = "wss://grok.com/ws/imagine/listen"
 ASSET_API = "https://assets.grok.com"
 TIMEOUT = 120
 
 ProgressCallback = Callable[[int, float], Optional[Awaitable[None] | None]]
+CompletedCallback = Callable[[int, str], Optional[Awaitable[None] | None]]
 
 
 def resolve_image_generation_method(raw: Any) -> str:
     candidate = str(raw or "").strip().lower()
     if candidate in IMAGE_METHODS:
         return candidate
+    mapped = IMAGE_METHOD_ALIASES.get(candidate)
+    if mapped:
+        return mapped
     return IMAGE_METHOD_LEGACY
 
 
@@ -140,13 +150,19 @@ class ImagineExperimentalService:
         token: str,
         prompt: str,
         n: int = 2,
+        aspect_ratio: str = "2:3",
         progress_cb: Optional[ProgressCallback] = None,
+        completed_cb: Optional[CompletedCallback] = None,
         timeout: Optional[int] = None,
     ) -> List[str]:
         request_id = str(uuid.uuid4())
         target_count = max(1, int(n or 1))
         effective_timeout = max(10, int(timeout or self.timeout))
-        payload = self._build_ws_payload(prompt=prompt, request_id=request_id)
+        payload = self._build_ws_payload(
+            prompt=prompt,
+            request_id=request_id,
+            aspect_ratio=aspect_ratio,
+        )
 
         session = AsyncSession(impersonate=BROWSER)
         ws = None
@@ -209,7 +225,15 @@ class ImagineExperimentalService:
 
                 image_url = self._extract_url(msg)
                 if image_url and self._is_completed(msg, progress):
+                    is_new = image_id not in final_urls
                     final_urls.setdefault(image_id, image_url)
+                    if is_new and completed_cb is not None:
+                        try:
+                            maybe_coro = completed_cb(image_indices[image_id], image_url)
+                            if asyncio.iscoroutine(maybe_coro):
+                                await maybe_coro
+                        except Exception as e:
+                            logger.debug(f"Imagine completion callback failed: {e}")
                     if len(final_urls) >= target_count:
                         break
 
@@ -260,6 +284,10 @@ class ImagineExperimentalService:
             return out
         finally:
             await dl.close()
+
+    async def convert_url(self, token: str, url: str, response_format: str = "b64_json") -> str:
+        items = await self.convert_urls(token=token, urls=[url], response_format=response_format)
+        return items[0] if items else ""
 
     @staticmethod
     def _to_asset_urls(file_uris: List[str]) -> List[str]:
