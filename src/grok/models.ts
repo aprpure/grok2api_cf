@@ -189,6 +189,8 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
     default_max_output_tokens: 8192,
     supported_max_output_tokens: 131072,
     default_top_p: 0.95,
+    tier: "basic",
+    cost: "high",
     is_image_model: true,
   },
   "grok-imagine-1.0-video": {
