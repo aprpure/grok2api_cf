@@ -27,6 +27,12 @@ from app.services.grok.chat import BROWSER, CHAT_API, ChatRequestBuilder
 IMAGE_METHOD_LEGACY = "legacy"
 IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL = "imagine_ws_experimental"
 IMAGE_METHODS = {IMAGE_METHOD_LEGACY, IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL}
+IMAGE_METHOD_ALIASES = {
+    "imagine_ws": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "experimental": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "new": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+    "new_method": IMAGE_METHOD_IMAGINE_WS_EXPERIMENTAL,
+}
 
 IMAGINE_WS_API = "wss://grok.com/ws/imagine/listen"
 ASSET_API = "https://assets.grok.com"
@@ -40,6 +46,9 @@ def resolve_image_generation_method(raw: Any) -> str:
     candidate = str(raw or "").strip().lower()
     if candidate in IMAGE_METHODS:
         return candidate
+    mapped = IMAGE_METHOD_ALIASES.get(candidate)
+    if mapped:
+        return mapped
     return IMAGE_METHOD_LEGACY
 
 

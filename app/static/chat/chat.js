@@ -267,6 +267,17 @@ function updateImageModeUI() {
   if (resultBox) resultBox.classList.toggle('waterfall-layout', isExperimental);
 }
 
+function isExperimentalImageMethod(method) {
+  const value = String(method || '').trim().toLowerCase();
+  return (
+    value === 'imagine_ws_experimental' ||
+    value === 'imagine_ws' ||
+    value === 'experimental' ||
+    value === 'new' ||
+    value === 'new_method'
+  );
+}
+
 async function refreshImageGenerationMethod() {
   const headers = buildApiHeaders();
   imageGenerationMethod = 'legacy';
@@ -278,12 +289,15 @@ async function refreshImageGenerationMethod() {
   }
 
   try {
-    const res = await fetch('/v1/images/method', { headers });
+    const res = await fetch(`/v1/images/method?t=${Date.now()}`, {
+      headers,
+      cache: 'no-store',
+    });
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      const method = String(data?.image_generation_method || '').trim().toLowerCase();
+      const method = String(data?.image_generation_method || data?.method || '').trim().toLowerCase();
       imageGenerationMethod = method || 'legacy';
-      imageGenerationExperimental = imageGenerationMethod === 'imagine_ws_experimental';
+      imageGenerationExperimental = isExperimentalImageMethod(imageGenerationMethod);
     }
   } catch (e) {}
 
