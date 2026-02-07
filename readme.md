@@ -124,8 +124,8 @@ python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 - 可设置注册数量（不填默认 `100`）
 - 可设置并发（默认 `10`）
 - 注册前会自动启动本地 Turnstile Solver（默认 5 线程），注册结束后自动关闭
-- 注册成功后会自动执行：同意用户协议（TOS）+ 开启 NSFW
-  - 若协议未成功同意或 NSFW 未成功开启，会判定该次注册失败并在前端显示错误原因
+- 注册成功后会自动执行：同意用户协议（TOS）+ 设置年龄 + 开启 NSFW
+  - 若 TOS / 年龄 / NSFW 任一步骤失败，会判定该次注册失败并在前端显示错误原因
 
 自动注册前置配置（在「配置管理」-> `register.*`）：
 - `register.worker_domain` / `register.email_domain` / `register.admin_password`：临时邮箱 Worker 配置
@@ -133,7 +133,7 @@ python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 - 可选：`register.yescaptcha_key`（配置后优先走 YesCaptcha，无需本地 solver）
 
 升级兼容：
-- 本地部署升级后会自动对「旧 Token」做一次 TOS + NSFW（并发 10，best-effort，仅执行一次，避免重复刷）。
+- 本地部署升级后会自动对「旧 Token」做一次 TOS + 设置年龄 + NSFW（并发 10，best-effort，仅执行一次，避免重复刷）。
 
 ### 环境变量
 
@@ -155,7 +155,7 @@ python scripts/smoke_test.py --base-url http://127.0.0.1:8000
 - 升级时自动兼容迁移（本地/Docker）：
   - 旧版配置：检测到 `data/setting.toml` 时，会按“缺失字段/仍为默认值”的策略合并到新配置
   - 旧版缓存目录：`data/temp/{image,video}` -> `data/tmp/{image,video}`
-  - 旧账号一次性修复（best-effort）：升级后会对现有 Token 自动执行一次「同意用户协议 + 开启 NSFW」（并发 10）
+  - 旧账号一次性修复（best-effort）：升级后会对现有 Token 自动执行一次「同意用户协议 + 设置年龄 + 开启 NSFW」（并发 10）
 
 
 ### 可用次数
