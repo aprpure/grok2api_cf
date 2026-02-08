@@ -1239,25 +1239,92 @@ async function submitImport() {
   const pool = document.getElementById('import-pool').value.trim() || 'ssoBasic';
   const text = document.getElementById('import-text').value;
   const lines = text.split('\n');
-
-  lines.forEach(line => {
-    const t = normalizeSsoToken(line.trim());
-    if (t && !flatTokens.some(ft => getTokenKey(ft.token) === t)) {
-      flatTokens.push({
-        token: t,
-        pool: pool,
-        status: 'active',
-        quota: 80,
-        quota_known: true,
-        heavy_quota: -1,
-        heavy_quota_known: false,
-        token_type: poolToType(pool),
-        note: '',
-        use_count: 0,
-        _selected: false
+  
+  // 如果数据量很大，使用批量异步处理避免卡顿
+  const BATCH_IMPORT_SIZE = 100;
+  const totalLines = lines.length;
+  
+  if (totalLines > BATCH_IMPORT_SIZE) {
+    // 显示进度提示
+    showToast(`正在处理 ${totalLines} 条数据...`, 'info');
+    
+    // 使用 Set 加速去重检查 (O(1) 复杂度)
+    const existingKeys = new Set(flatTokens.map(ft => getTokenKey(ft.token)));
+    const newTokens = [];
+    let processed = 0;
+    let duplicates = 0;
+    
+    // 分批异步处理，避免阻塞主线程
+    const processBatch = (startIdx) => {
+      return new Promise(resolve => {
+        // 使用 setTimeout 让出主线程
+        setTimeout(() => {
+          const endIdx = Math.min(startIdx + BATCH_IMPORT_SIZE, totalLines);
+          
+          for (let i = startIdx; i < endIdx; i++) {
+            const t = normalizeSsoToken(lines[i].trim());
+            if (t) {
+              if (!existingKeys.has(t)) {
+                existingKeys.add(t); // 防止同一批次内重复
+                newTokens.push({
+                  token: t,
+                  pool: pool,
+                  status: 'active',
+                  quota: 80,
+                  quota_known: true,
+                  heavy_quota: -1,
+                  heavy_quota_known: false,
+                  token_type: poolToType(pool),
+                  note: '',
+                  use_count: 0,
+                  _selected: false
+                });
+              } else {
+                duplicates++;
+              }
+            }
+          }
+          
+          processed = endIdx;
+          resolve();
+        }, 0);
       });
+    };
+    
+    // 分批处理所有数据
+    for (let i = 0; i < totalLines; i += BATCH_IMPORT_SIZE) {
+      await processBatch(i);
     }
-  });
+    
+    // 批量添加到 flatTokens
+    flatTokens.push(...newTokens);
+    
+    const addedCount = newTokens.length;
+    showToast(`导入完成：新增 ${addedCount} 个，重复 ${duplicates} 个`, 'success');
+  } else {
+    // 小数据量使用优化后的逻辑（使用 Set 代替 some）
+    const existingKeys = new Set(flatTokens.map(ft => getTokenKey(ft.token)));
+    
+    lines.forEach(line => {
+      const t = normalizeSsoToken(line.trim());
+      if (t && !existingKeys.has(t)) {
+        existingKeys.add(t);
+        flatTokens.push({
+          token: t,
+          pool: pool,
+          status: 'active',
+          quota: 80,
+          quota_known: true,
+          heavy_quota: -1,
+          heavy_quota_known: false,
+          token_type: poolToType(pool),
+          note: '',
+          use_count: 0,
+          _selected: false
+        });
+      }
+    });
+  }
 
   await syncToServer();
   closeImportModal();
