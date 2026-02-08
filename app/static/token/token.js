@@ -15,6 +15,10 @@ let liveStatsTimer = null;
 let isWorkersRuntime = false;
 let isNsfwRefreshAllRunning = false;
 
+// D1 optimization: use server-side stats API to reduce row reads
+let useOptimizedStats = true;
+const STATS_REFRESH_INTERVAL = 30000; // 30 seconds instead of 5 seconds
+
 // Pagination, Sorting, and Filtering state
 let currentPage = 1;
 let pageSize = 25;
@@ -190,14 +194,46 @@ async function init() {
 
 function startLiveStats() {
   if (liveStatsTimer) clearInterval(liveStatsTimer);
-  // Keep stats fresh (use_count / quota changes) without disrupting table interactions.
+  // Keep stats fresh using optimized API (only 1 row read) with longer interval to reduce D1 usage
   liveStatsTimer = setInterval(() => {
     refreshStatsOnly();
-  }, 5000);
+  }, STATS_REFRESH_INTERVAL);
 }
 
 async function refreshStatsOnly() {
   try {
+    // Use optimized stats API if available (only reads 1 row from D1)
+    if (useOptimizedStats) {
+      const res = await fetch('/api/v1/admin/tokens/stats', {
+        headers: buildAuthHeaders(apiKey)
+      });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+      if (res.status === 404) {
+        // Fallback to legacy API if optimized endpoint not available
+        useOptimizedStats = false;
+        return refreshStatsOnly();
+      }
+      if (!res.ok) return;
+      const stats = await res.json();
+
+      const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = text;
+      };
+      setText('stat-total', (stats.total || 0).toLocaleString());
+      setText('stat-active', (stats.active || 0).toLocaleString());
+      setText('stat-cooling', (stats.cooling || 0).toLocaleString());
+      setText('stat-invalid', (stats.expired || 0).toLocaleString());
+      setText('stat-chat-quota', (stats.chatQuota || 0).toLocaleString());
+      setText('stat-image-quota', Math.floor((stats.chatQuota || 0) / 2).toLocaleString());
+      // Note: totalCalls is not available from optimized API
+      return;
+    }
+
+    // Legacy: fetch all tokens (high row read cost)
     const res = await fetch('/api/v1/admin/tokens', {
       headers: buildAuthHeaders(apiKey)
     });

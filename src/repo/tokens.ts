@@ -96,6 +96,135 @@ export async function listTokens(db: Env["DB"]): Promise<TokenRow[]> {
   );
 }
 
+/**
+ * 分页查询 Token 列表
+ * @param db 数据库实例
+ * @param limit 每页数量，默认 50
+ * @param offset 偏移量，默认 0
+ * @param filters 过滤条件
+ * @returns 分页结果
+ */
+export async function listTokensPaginated(
+  db: Env["DB"],
+  limit = 50,
+  offset = 0,
+  filters?: {
+    token_type?: TokenType;
+    status?: string;
+    search?: string;
+  },
+): Promise<{ items: TokenRow[]; total: number }> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters?.token_type) {
+    conditions.push("token_type = ?");
+    params.push(filters.token_type);
+  }
+
+  if (filters?.status) {
+    if (filters.status === "active") {
+      conditions.push("status = 'active' AND (cooldown_until IS NULL OR cooldown_until <= ?)");
+      params.push(nowMs());
+    } else if (filters.status === "cooling") {
+      conditions.push("status != 'expired' AND cooldown_until > ?");
+      params.push(nowMs());
+    } else if (filters.status === "expired" || filters.status === "invalid") {
+      conditions.push("status = 'expired'");
+    }
+  }
+
+  if (filters?.search) {
+    conditions.push("(token LIKE ? OR note LIKE ?)");
+    const searchPattern = `%${filters.search}%`;
+    params.push(searchPattern, searchPattern);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // 获取总数 - 只读取一行
+  const countResult = await dbFirst<{ c: number }>(
+    db,
+    `SELECT COUNT(1) as c FROM tokens ${whereClause}`,
+    params,
+  );
+  const total = countResult?.c ?? 0;
+
+  // 获取分页数据
+  const items = await dbAll<TokenRow>(
+    db,
+    `SELECT token, token_type, created_time, remaining_queries, heavy_remaining_queries, status, tags, note, cooldown_until, last_failure_time, last_failure_reason, failed_count
+     FROM tokens ${whereClause}
+     ORDER BY created_time DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  );
+
+  return { items, total };
+}
+
+/**
+ * 获取 Token 统计信息 - 使用聚合查询减少行读取
+ * 只读取聚合结果行，不扫描所有数据行
+ */
+export async function getTokenStats(db: Env["DB"]): Promise<{
+  total: number;
+  active: number;
+  cooling: number;
+  expired: number;
+  chatQuota: number;
+  heavyQuota: number;
+}> {
+  const now = nowMs();
+
+  // 使用单条聚合查询获取所有统计
+  const result = await dbFirst<{
+    total: number;
+    active: number;
+    cooling: number;
+    expired: number;
+    chat_quota: number;
+    heavy_quota: number;
+  }>(
+    db,
+    `SELECT
+      COUNT(1) as total,
+      SUM(CASE WHEN status != 'expired' AND (cooldown_until IS NULL OR cooldown_until <= ?) THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN status != 'expired' AND cooldown_until > ? THEN 1 ELSE 0 END) as cooling,
+      SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired,
+      SUM(CASE WHEN status != 'expired' AND (cooldown_until IS NULL OR cooldown_until <= ?) AND remaining_queries > 0 THEN remaining_queries ELSE 0 END) as chat_quota,
+      SUM(CASE WHEN status != 'expired' AND (cooldown_until IS NULL OR cooldown_until <= ?) AND heavy_remaining_queries > 0 THEN heavy_remaining_queries ELSE 0 END) as heavy_quota
+     FROM tokens`,
+    [now, now, now, now],
+  );
+
+  return {
+    total: result?.total ?? 0,
+    active: result?.active ?? 0,
+    cooling: result?.cooling ?? 0,
+    expired: result?.expired ?? 0,
+    chatQuota: result?.chat_quota ?? 0,
+    heavyQuota: result?.heavy_quota ?? 0,
+  };
+}
+
+/**
+ * 获取所有唯一标签 - 优化版本
+ * 使用 DISTINCT 和 JSON 提取减少数据传输
+ */
+export async function getAllTagsOptimized(db: Env["DB"]): Promise<string[]> {
+  // 只查询非空 tags 字段，减少数据传输
+  const rows = await dbAll<{ tags: string }>(
+    db,
+    "SELECT DISTINCT tags FROM tokens WHERE tags != '[]' AND tags != ''",
+  );
+  const set = new Set<string>();
+  for (const r of rows) {
+    for (const t of parseTags(r.tags)) set.add(t);
+  }
+  return [...set].sort();
+}
+
 export async function addTokens(db: Env["DB"], tokens: string[], token_type: TokenType): Promise<number> {
   const now = nowMs();
   const cleaned = tokens.map((t) => t.trim()).filter(Boolean);

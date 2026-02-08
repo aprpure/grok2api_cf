@@ -26,7 +26,10 @@ import {
   applyCooldown,
   deleteTokens,
   getAllTags,
+  getAllTagsOptimized,
+  getTokenStats,
   listTokens,
+  listTokensPaginated,
   recordTokenFailure,
   selectBestToken,
   tokenRowToInfo,
@@ -629,6 +632,105 @@ adminRoutes.get("/api/v1/admin/tokens", requireAdminAuth, async (c) => {
     return c.json(out);
   } catch (e) {
     return c.json(legacyErr(`Get tokens failed: ${e instanceof Error ? e.message : String(e)}`), 500);
+  }
+});
+
+// 分页查询 tokens API - 减少行读取数量
+adminRoutes.get("/api/v1/admin/tokens/paginated", requireAdminAuth, async (c) => {
+  try {
+    const url = new URL(c.req.url);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
+    const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
+    const tokenType = url.searchParams.get("token_type") as "sso" | "ssoSuper" | null;
+    const status = url.searchParams.get("status");
+    const search = url.searchParams.get("search");
+
+    const filters: { token_type?: "sso" | "ssoSuper"; status?: string; search?: string } = {};
+    if (tokenType === "sso" || tokenType === "ssoSuper") filters.token_type = tokenType;
+    if (status && ["active", "cooling", "expired"].includes(status)) filters.status = status;
+    if (search) filters.search = search;
+
+    const { items, total } = await listTokensPaginated(c.env.DB, limit, offset, filters);
+    const now = nowMs();
+
+    const data = items.map((r) => {
+      const pool = toPoolName(r.token_type);
+      const isCooling = Boolean(r.cooldown_until && r.cooldown_until > now);
+      const currentStatus = r.status === "expired" ? "invalid" : isCooling ? "cooling" : "active";
+      const quotaKnown = Number.isFinite(r.remaining_queries) && r.remaining_queries >= 0;
+      const quota = quotaKnown ? r.remaining_queries : -1;
+      const heavyQuotaKnown =
+        r.token_type === "ssoSuper" && Number.isFinite(r.heavy_remaining_queries) && r.heavy_remaining_queries >= 0;
+      const heavyQuota = heavyQuotaKnown ? r.heavy_remaining_queries : -1;
+      return {
+        token: r.token,
+        pool,
+        status: currentStatus,
+        quota,
+        quota_known: quotaKnown,
+        heavy_quota: heavyQuota,
+        heavy_quota_known: heavyQuotaKnown,
+        token_type: r.token_type,
+        note: r.note ?? "",
+        fail_count: r.failed_count ?? 0,
+        tags: r.tags ? JSON.parse(r.tags) : [],
+      };
+    });
+
+    return c.json({
+      items: data,
+      total,
+      limit,
+      offset,
+      hasMore: offset + items.length < total,
+    });
+  } catch (e) {
+    return c.json(legacyErr(`Get paginated tokens failed: ${e instanceof Error ? e.message : String(e)}`), 500);
+  }
+});
+
+// 优化的统计 API - 使用聚合查询，仅读取1行，带 KV 缓存
+const STATS_CACHE_KEY = "token_stats_cache";
+const STATS_CACHE_TTL_SECONDS = 30; // 缓存30秒减少D1查询
+
+adminRoutes.get("/api/v1/admin/tokens/stats", requireAdminAuth, async (c) => {
+  try {
+    // 尝试从 KV 缓存获取
+    const cached = await c.env.KV_CACHE.get(STATS_CACHE_KEY, { type: "json" });
+    if (cached) {
+      return c.json(cached);
+    }
+
+    // 缓存未命中，从数据库查询
+    const stats = await getTokenStats(c.env.DB);
+    const result = {
+      total: stats.total,
+      active: stats.active,
+      cooling: stats.cooling,
+      expired: stats.expired,
+      chatQuota: stats.chatQuota,
+      heavyQuota: stats.heavyQuota,
+      _cached_at: nowMs(),
+    };
+
+    // 存入 KV 缓存，TTL 30秒
+    await c.env.KV_CACHE.put(STATS_CACHE_KEY, JSON.stringify(result), {
+      expirationTtl: STATS_CACHE_TTL_SECONDS,
+    });
+
+    return c.json(result);
+  } catch (e) {
+    return c.json(legacyErr(`Get token stats failed: ${e instanceof Error ? e.message : String(e)}`), 500);
+  }
+});
+
+// 优化的标签获取 API
+adminRoutes.get("/api/v1/admin/tokens/tags", requireAdminAuth, async (c) => {
+  try {
+    const tags = await getAllTagsOptimized(c.env.DB);
+    return c.json({ tags });
+  } catch (e) {
+    return c.json(legacyErr(`Get tags failed: ${e instanceof Error ? e.message : String(e)}`), 500);
   }
 });
 
