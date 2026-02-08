@@ -1044,6 +1044,13 @@ async function streamImage(body, headers) {
   return rendered;
 }
 
+function adjustImageCount(delta) {
+  const input = q('image-n');
+  let value = parseInt(input.value) || 1;
+  value = Math.max(1, Math.min(10, value + delta));
+  input.value = value;
+}
+
 async function generateImage() {
   const prompt = String(q('image-prompt').value || '').trim();
   if (!prompt) return showToast('请输入 prompt', 'warning');
