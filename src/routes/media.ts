@@ -198,7 +198,11 @@ mediaRoutes.get("/images/:imgPath{.+}", async (c) => {
     type: "arrayBuffer",
   });
   if (cached?.value) {
-    c.executionCtx.waitUntil(touchCacheRow(c.env.DB, key, nowMs()));
+    // 采样更新访问时间：只有 10% 的请求触发 D1 写入，减少行写入配额消耗
+    // 这对 LRU 淘汰策略的精度影响很小，但可以节省 90% 的 D1 写入
+    if (Math.random() < 0.1) {
+      c.executionCtx.waitUntil(touchCacheRow(c.env.DB, key, nowMs()));
+    }
     const contentType = (cached.metadata?.contentType as string | undefined) ?? "application/octet-stream";
     return responseFromBytes({ bytes: cached.value, contentType, cacheSeconds, rangeHeader });
   }
