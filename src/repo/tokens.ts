@@ -181,16 +181,27 @@ export async function recordTokenFailure(
 ): Promise<void> {
   const now = nowMs();
   const reason = `${status}: ${message}`;
-  await dbRun(
-    db,
-    "UPDATE tokens SET failed_count = failed_count + 1, last_failure_time = ?, last_failure_reason = ? WHERE token = ?",
-    [now, reason, token],
-  );
-
-  const row = await dbFirst<{ failed_count: number }>(db, "SELECT failed_count FROM tokens WHERE token = ?", [token]);
-  if (!row) return;
-  if (status >= 400 && status < 500 && row.failed_count >= MAX_FAILURES) {
-    await dbRun(db, "UPDATE tokens SET status = 'expired' WHERE token = ?", [token]);
+  
+  // 优化：对于 4xx 错误，直接在一条 SQL 中完成更新和条件判断
+  // 使用 CASE WHEN 在单次 UPDATE 中同时处理 failed_count 递增和 status 更新
+  if (status >= 400 && status < 500) {
+    await dbRun(
+      db,
+      `UPDATE tokens SET
+        failed_count = failed_count + 1,
+        last_failure_time = ?,
+        last_failure_reason = ?,
+        status = CASE WHEN failed_count + 1 >= ? THEN 'expired' ELSE status END
+       WHERE token = ?`,
+      [now, reason, MAX_FAILURES, token],
+    );
+  } else {
+    // 非 4xx 错误，只更新失败计数，不影响 status
+    await dbRun(
+      db,
+      "UPDATE tokens SET failed_count = failed_count + 1, last_failure_time = ?, last_failure_reason = ? WHERE token = ?",
+      [now, reason, token],
+    );
   }
 }
 
