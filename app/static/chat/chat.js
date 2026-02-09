@@ -251,6 +251,14 @@ async function init() {
   chatMessages = [];
   q('chat-messages').innerHTML = '';
   showUserMsg('system', '提示：选择模型后即可开始聊天；生图/视频请切换到对应 Tab。');
+
+  // 绑定 Ctrl+Enter 快捷键发送消息
+  q('chat-input')?.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      sendChat();
+    }
+  });
 }
 
 function bindFileInputs() {
@@ -293,7 +301,7 @@ function renderAttachments(kind) {
   list.forEach((it, idx) => {
     const div = document.createElement('div');
     div.className = 'attach-item';
-    div.innerHTML = `<img src="${it.previewUrl}" alt="img"><button title="绉婚櫎">脳</button>`;
+    div.innerHTML = `<img src="${it.previewUrl}" alt="img"><button title="移除">×</button>`;
     div.querySelector('button').addEventListener('click', () => {
       try { URL.revokeObjectURL(it.previewUrl); } catch (e) {}
       list.splice(idx, 1);
@@ -736,7 +744,8 @@ async function refreshModels() {
       const id = String(m.id || '');
       if (currentTab === 'image') return id === 'grok-imagine-1.0';
       if (currentTab === 'video') return id === 'grok-imagine-1.0-video';
-      return !/imagine/i.test(id) || id === 'grok-4-heavy';
+      // Chat Tab: 包含以 -edit 或 -heavy 结尾的模型，排除其他 imagine 模型
+      return !/imagine/i.test(id) || id.endsWith('-heavy') || id.endsWith('-edit');
     });
 
     filtered.forEach((m) => {

@@ -261,13 +261,14 @@
   transform: translateX(20px);
 }
 
-.stream-checkbox:checked ~ .stream-toggle-thumb,
 .stream-toggle-track:has(.stream-checkbox:checked) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffffff;
+  border: 1px solid var(--accents-2);
 }
 
 .stream-toggle-track:has(.stream-checkbox:checked) .stream-toggle-thumb {
   transform: translateX(20px);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .stream-label-group {
