@@ -258,10 +258,15 @@ export function createOpenAiStreamFromGrokNdjson(
     settings: GrokSettings;
     global: GlobalSettings;
     origin: string;
+    requestedModel: string;
     onFinish?: (result: { status: number; duration: number }) => Promise<void> | void;
   },
 ): ReadableStream<Uint8Array> {
   const { settings, global, origin } = opts;
+  const fallbackModel =
+    typeof opts.requestedModel === "string" && opts.requestedModel.trim()
+      ? opts.requestedModel.trim()
+      : "grok-4";
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
@@ -285,7 +290,7 @@ export function createOpenAiStreamFromGrokNdjson(
     async start(controller) {
       const body = grokResp.body;
       if (!body) {
-        controller.enqueue(encoder.encode(makeChunk(id, created, "grok-4-mini-thinking-tahoe", "Empty response", "error")));
+        controller.enqueue(encoder.encode(makeChunk(id, created, fallbackModel, "Empty response", "error")));
         controller.enqueue(encoder.encode(makeDone()));
         controller.close();
         return;
@@ -297,7 +302,7 @@ export function createOpenAiStreamFromGrokNdjson(
       let lastChunkTime = startTime;
       let firstReceived = false;
 
-      let currentModel = "grok-4-mini-thinking-tahoe";
+      let currentModel = fallbackModel;
       let isImage = false;
       let isVideo = false; // 标记当前是否在处理视频流
       let isThinking = false;

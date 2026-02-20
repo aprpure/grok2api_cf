@@ -835,7 +835,7 @@ adminRoutes.post("/api/v1/admin/tokens/refresh", requireAdminAuth, async (c) => 
       try {
         const cookie = cf ? `sso-rw=${t};sso=${t};${cf}` : `sso-rw=${t};sso=${t}`;
         const tokenType = tokenTypeByToken.get(t) ?? "sso";
-        const r = await checkRateLimits(cookie, settings.grok, "grok-3");
+        const r = await checkRateLimits(cookie, settings.grok, "grok-4");
         const remaining = (r as any)?.remainingTokens;
         let heavyRemaining: number | null = null;
         if (tokenType === "ssoSuper") {
@@ -1142,7 +1142,7 @@ adminRoutes.post("/api/tokens/test", requireAdminAuth, async (c) => {
     const cf = normalizeCfCookie(settings.grok.cf_clearance ?? "");
     const cookie = cf ? `sso-rw=${token};sso=${token};${cf}` : `sso-rw=${token};sso=${token}`;
 
-    const result = await checkRateLimits(cookie, settings.grok, "grok-3");
+    const result = await checkRateLimits(cookie, settings.grok, "grok-4");
     if (result) {
       const remaining = (result as any).remainingTokens ?? -1;
       const limit = (result as any).limit ?? -1;
@@ -1251,11 +1251,20 @@ adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
             const results = await Promise.allSettled(
               batch.map(async (t) => {
                 const cookie = cf ? `sso-rw=${t.token};sso=${t.token};${cf}` : `sso-rw=${t.token};sso=${t.token}`;
-                const r = await checkRateLimits(cookie, settings.grok, "grok-3");
+                const r = await checkRateLimits(cookie, settings.grok, "grok-4");
                 if (r) {
                   const remaining = (r as any).remainingTokens;
+                  let heavyRemaining: number | null = null;
+                  if (t.token_type === "ssoSuper") {
+                    const rh = await checkRateLimits(cookie, settings.grok, "grok-4-heavy");
+                    const hv = (rh as any)?.remainingTokens;
+                    if (typeof hv === "number") heavyRemaining = hv;
+                  }
                   if (typeof remaining === "number") {
-                    await updateTokenLimits(c.env.DB, t.token, { remaining_queries: remaining });
+                    await updateTokenLimits(c.env.DB, t.token, {
+                      remaining_queries: remaining,
+                      ...(heavyRemaining !== null ? { heavy_remaining_queries: heavyRemaining } : {}),
+                    });
                     // 如果 Token 有剩余次数，尝试恢复其状态（从 expired 恢复为 active）
                     if (remaining > 0) {
                       await recoverTokenStatus(c.env.DB, t.token, remaining);
