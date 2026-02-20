@@ -835,7 +835,7 @@ adminRoutes.post("/api/v1/admin/tokens/refresh", requireAdminAuth, async (c) => 
       try {
         const cookie = cf ? `sso-rw=${t};sso=${t};${cf}` : `sso-rw=${t};sso=${t}`;
         const tokenType = tokenTypeByToken.get(t) ?? "sso";
-        const r = await checkRateLimits(cookie, settings.grok, "grok-4");
+        const r = await checkRateLimits(cookie, settings.grok, "grok-3");
         const remaining = (r as any)?.remainingTokens;
         let heavyRemaining: number | null = null;
         if (tokenType === "ssoSuper") {
@@ -1142,7 +1142,7 @@ adminRoutes.post("/api/tokens/test", requireAdminAuth, async (c) => {
     const cf = normalizeCfCookie(settings.grok.cf_clearance ?? "");
     const cookie = cf ? `sso-rw=${token};sso=${token};${cf}` : `sso-rw=${token};sso=${token}`;
 
-    const result = await checkRateLimits(cookie, settings.grok, "grok-4");
+    const result = await checkRateLimits(cookie, settings.grok, "grok-3");
     if (result) {
       const remaining = (result as any).remainingTokens ?? -1;
       const limit = (result as any).limit ?? -1;
@@ -1251,7 +1251,7 @@ adminRoutes.post("/api/tokens/refresh-all", requireAdminAuth, async (c) => {
             const results = await Promise.allSettled(
               batch.map(async (t) => {
                 const cookie = cf ? `sso-rw=${t.token};sso=${t.token};${cf}` : `sso-rw=${t.token};sso=${t.token}`;
-                const r = await checkRateLimits(cookie, settings.grok, "grok-4");
+                const r = await checkRateLimits(cookie, settings.grok, "grok-3");
                 if (r) {
                   const remaining = (r as any).remainingTokens;
                   let heavyRemaining: number | null = null;
