@@ -99,6 +99,14 @@ class ModelService:
             display_name="Grok 4 Heavy"
         ),
         ModelInfo(
+            model_id="grok-4.1",
+            grok_model="grok-4-auto",
+            rate_limit_model="grok-4",
+            model_mode="MODEL_MODE_AUTO",
+            cost=Cost.LOW,
+            display_name="Grok 4.1"
+        ),
+        ModelInfo(
             model_id="grok-4.1-mini",
             grok_model="grok-4-1-thinking-1129",
             rate_limit_model="grok-4-1-thinking-1129",

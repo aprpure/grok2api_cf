@@ -126,7 +126,7 @@ class UsageService:
                     
                     if response.status_code == 200:
                         data = response.json()
-                        remaining = data.get('remainingTokens', 0)
+                        remaining = data.get('remainingQueries', 0)
                         logger.info(f"Usage: quota {remaining} remaining")
                         return data
                     
