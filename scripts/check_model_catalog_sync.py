@@ -26,7 +26,6 @@ REMOVED_IDENTIFIERS = (
     "grok-3-fast",
     "grok-4-fast",
     "grok-4-mini-thinking-tahoe",
-    "grok-4.1",
 )
 
 
