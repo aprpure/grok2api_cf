@@ -84,7 +84,7 @@ export function buildConversationPayload(args: {
 }): { payload: Record<string, unknown>; referer?: string; isVideoModel: boolean } {
   const { requestModel, content, imgIds, imgUris, postId, settings } = args;
   const cfg = getModelInfo(requestModel);
-  const { grokModel, mode, isVideoModel } = toGrokModel(requestModel);
+  const { grokModel, mode, modeId, isVideoModel } = toGrokModel(requestModel);
 
   if (cfg?.is_video_model) {
     if (!postId) throw new Error("视频模型缺少 postId（需要先创建 media post）");
@@ -132,7 +132,6 @@ export function buildConversationPayload(args: {
     isVideoModel,
     payload: {
       temporary: settings.temporary ?? true,
-      modelName: grokModel,
       message: content,
       fileAttachments: imgIds,
       imageAttachments: [],
@@ -147,13 +146,22 @@ export function buildConversationPayload(args: {
       enableSideBySide: true,
       sendFinalMetadata: true,
       isReasoning: false,
-      webpageUrls: [],
-      disableTextFollowUps: true,
-      responseMetadata: { requestModelDetails: { modelId: grokModel } },
+      disableTextFollowUps: false,
+      responseMetadata: {},
       disableMemory: false,
       forceSideBySide: false,
-      modelMode: mode,
       isAsyncChat: false,
+      disableSelfHarmShortCircuit: false,
+      deviceEnvInfo: {
+        darkModeEnabled: false,
+        devicePixelRatio: 2,
+        screenWidth: 2056,
+        screenHeight: 1329,
+        viewportWidth: 2056,
+        viewportHeight: 1083,
+      },
+      modeId,
+      enable420: modeId === "420",
     },
   };
 }

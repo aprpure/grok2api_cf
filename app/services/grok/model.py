@@ -29,6 +29,7 @@ class ModelInfo(BaseModel):
     grok_model: str
     rate_limit_model: str
     model_mode: str
+    mode_id: str = ""
     tier: Tier = Field(default=Tier.BASIC)
     cost: Cost = Field(default=Cost.LOW)
     display_name: str
@@ -46,6 +47,7 @@ class ModelService:
             grok_model="grok-3",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_GROK_3",
+            mode_id="default",
             cost=Cost.LOW,
             display_name="Grok 3"
         ),
@@ -54,6 +56,7 @@ class ModelService:
             grok_model="grok-3",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_GROK_3_MINI_THINKING",
+            mode_id="mini",
             cost=Cost.LOW,
             display_name="Grok 3 Mini"
         ),
@@ -62,6 +65,7 @@ class ModelService:
             grok_model="grok-3",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_GROK_3_THINKING",
+            mode_id="thinking",
             cost=Cost.LOW,
             display_name="Grok 3 Thinking"
         ),
@@ -70,6 +74,7 @@ class ModelService:
             grok_model="grok-4",
             rate_limit_model="grok-4",
             model_mode="MODEL_MODE_GROK_4",
+            mode_id="default",
             cost=Cost.LOW,
             display_name="Grok 4"
         ),
@@ -78,6 +83,7 @@ class ModelService:
             grok_model="grok-4-mini",
             rate_limit_model="grok-4-mini",
             model_mode="MODEL_MODE_GROK_4_MINI_THINKING",
+            mode_id="mini",
             cost=Cost.LOW,
             display_name="Grok 4 Mini"
         ),
@@ -86,6 +92,7 @@ class ModelService:
             grok_model="grok-4",
             rate_limit_model="grok-4",
             model_mode="MODEL_MODE_GROK_4_THINKING",
+            mode_id="thinking",
             cost=Cost.LOW,
             display_name="Grok 4 Thinking"
         ),
@@ -94,6 +101,7 @@ class ModelService:
             grok_model="grok-4",
             rate_limit_model="grok-4-heavy",
             model_mode="MODEL_MODE_HEAVY",
+            mode_id="heavy",
             cost=Cost.HIGH,
             tier=Tier.SUPER,
             display_name="Grok 4 Heavy"
@@ -103,6 +111,7 @@ class ModelService:
             grok_model="grok-4-auto",
             rate_limit_model="grok-4",
             model_mode="MODEL_MODE_AUTO",
+            mode_id="auto",
             cost=Cost.LOW,
             display_name="Grok 4.1"
         ),
@@ -111,6 +120,7 @@ class ModelService:
             grok_model="grok-4-1-thinking-1129",
             rate_limit_model="grok-4-1-thinking-1129",
             model_mode="MODEL_MODE_GROK_4_1_MINI_THINKING",
+            mode_id="mini",
             cost=Cost.LOW,
             display_name="Grok 4.1 Mini"
         ),
@@ -119,6 +129,7 @@ class ModelService:
             grok_model="grok-4-1-thinking-1129",
             rate_limit_model="grok-4-1-thinking-1129",
             model_mode="MODEL_MODE_FAST",
+            mode_id="fast",
             cost=Cost.LOW,
             display_name="Grok 4.1 Fast"
         ),
@@ -127,6 +138,7 @@ class ModelService:
             grok_model="grok-4-1-thinking-1129",
             rate_limit_model="grok-4-1-thinking-1129",
             model_mode="MODEL_MODE_EXPERT",
+            mode_id="expert",
             cost=Cost.HIGH,
             display_name="Grok 4.1 Expert"
         ),
@@ -135,7 +147,8 @@ class ModelService:
             grok_model="grok-4-1-thinking-1129",
             rate_limit_model="grok-4-1-thinking-1129",
             model_mode="MODEL_MODE_GROK_4_1_THINKING",
-            cost=Cost.HIGH, 
+            mode_id="thinking",
+            cost=Cost.HIGH,
             display_name="Grok 4.1 Thinking"
         ),
         ModelInfo(
@@ -143,6 +156,7 @@ class ModelService:
             grok_model="grok-420",
             rate_limit_model="grok-420",
             model_mode="MODEL_MODE_GROK_420",
+            mode_id="420",
             cost=Cost.LOW,
             display_name="Grok 4.20 Beta"
         ),
@@ -151,6 +165,7 @@ class ModelService:
             grok_model="grok-3",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_FAST",
+            mode_id="fast",
             cost=Cost.HIGH,
             display_name="Grok Image",
             description="Image generation model",
@@ -161,6 +176,7 @@ class ModelService:
             grok_model="imagine-image-edit",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_FAST",
+            mode_id="fast",
             cost=Cost.HIGH,
             display_name="Grok Image Edit",
             description="Image edit model",
@@ -171,6 +187,7 @@ class ModelService:
             grok_model="grok-3",
             rate_limit_model="grok-3",
             model_mode="MODEL_MODE_FAST",
+            mode_id="fast",
             cost=Cost.HIGH,
             display_name="Grok Video",
             description="Video generation model",

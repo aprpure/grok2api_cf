@@ -157,24 +157,26 @@ class ChatRequestBuilder:
         headers = {
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Accept-Language": "zh-CN,zh;q=0.9",
-            "Baggage": "sentry-environment=production,sentry-release=d6add6fb0460641fd482d767a335ef72b9b6abb8,sentry-public_key=b311e0f2690c81f25e2c4cf6d4f7ce1c",
+            "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Baggage": "sentry-environment=production,sentry-public_key=b311e0f2690c81f25e2c4cf6d4f7ce1c",
             "Cache-Control": "no-cache",
             "Content-Type": "application/json",
             "Origin": "https://grok.com",
             "Pragma": "no-cache",
             "Priority": "u=1, i",
             "Referer": "https://grok.com/",
-            "Sec-Ch-Ua": '"Google Chrome";v="136", "Chromium";v="136", "Not(A:Brand";v="24"',
-            "Sec-Ch-Ua-Arch": "arm",
-            "Sec-Ch-Ua-Bitness": "64",
+            "Sec-Ch-Ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+            "Sec-Ch-Ua-Arch": '"x86"',
+            "Sec-Ch-Ua-Bitness": '"64"',
+            "Sec-Ch-Ua-Full-Version-List": '"Chromium";v="146.0.7680.80", "Not-A.Brand";v="24.0.0.0", "Google Chrome";v="146.0.7680.80"',
             "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Model": "",
-            "Sec-Ch-Ua-Platform": '"macOS"',
+            "Sec-Ch-Ua-Model": '""',
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Ch-Ua-Platform-Version": '"10.0.0"',
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
         }
         
         # Statsig ID
@@ -190,12 +192,13 @@ class ChatRequestBuilder:
     
     @staticmethod
     def build_payload(
-        message: str, 
-        model: str, 
-        mode: str, 
+        message: str,
+        model: str,
+        mode: str,
         think: bool = None,
         file_attachments: List[str] = None,
-        image_attachments: List[str] = None
+        image_attachments: List[str] = None,
+        mode_id: str = "default"
     ) -> Dict[str, Any]:
         """
         构造请求体
@@ -207,6 +210,7 @@ class ChatRequestBuilder:
             think: 是否开启思考
             file_attachments: 文件附件 ID 列表
             image_attachments: 图片附件 URL 列表
+            mode_id: 新版 API 的 modeId 字段
         """
         temporary = get_config("grok.temporary", True)
         if think is None:
@@ -221,8 +225,6 @@ class ChatRequestBuilder:
         
         return {
             "temporary": temporary,
-            "modelName": model,
-            "modelMode": mode,
             "message": message,
             "fileAttachments": merged_attachments,
             "imageAttachments": [],
@@ -238,10 +240,7 @@ class ChatRequestBuilder:
             "sendFinalMetadata": True,
             "isReasoning": False,
             "disableTextFollowUps": False,
-            "responseMetadata": {
-                "modelConfigOverride": {"modelMap": {}},
-                "requestModelDetails": {"modelId": model}
-            },
+            "responseMetadata": {},
             "disableMemory": False,
             "forceSideBySide": False,
             "isAsyncChat": False,
@@ -253,7 +252,9 @@ class ChatRequestBuilder:
                 "screenHeight": 1329,
                 "viewportWidth": 2056,
                 "viewportHeight": 1083
-            }
+            },
+            "modeId": mode_id,
+            "enable420": mode_id == "420",
         }
 
 
@@ -274,7 +275,8 @@ class GrokChatService:
         think: bool = None,
         stream: bool = None,
         file_attachments: List[str] = None,
-        image_attachments: List[str] = None
+        image_attachments: List[str] = None,
+        mode_id: str = "default"
     ):
         """
         发送聊天请求
@@ -288,6 +290,7 @@ class GrokChatService:
             stream: 是否流式
             file_attachments: 文件附件 ID 列表
             image_attachments: 图片附件 URL 列表
+            mode_id: 新版 API 的 modeId 字段
         
         Raises:
             UpstreamException: 当 Grok API 返回错误且重试耗尽时
@@ -297,8 +300,9 @@ class GrokChatService:
         
         headers = ChatRequestBuilder.build_headers(token)
         payload = ChatRequestBuilder.build_payload(
-            message, model, mode, think, 
-            file_attachments, image_attachments
+            message, model, mode, think,
+            file_attachments, image_attachments,
+            mode_id=mode_id
         )
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
         timeout = get_config("grok.timeout", TIMEOUT)
@@ -397,6 +401,7 @@ class GrokChatService:
         
         grok_model = model_info.grok_model
         mode = model_info.model_mode
+        mode_id = model_info.mode_id or "default"
         is_video = model_info.is_video
         
         # 提取消息和附件
@@ -433,7 +438,8 @@ class GrokChatService:
         response = await self.chat(
             token, message, grok_model, mode, think, stream,
             file_attachments=file_ids,
-            image_attachments=image_ids
+            image_attachments=image_ids,
+            mode_id=mode_id
         )
         
         return response, stream, request.model

@@ -7,6 +7,7 @@ export type Cost = "low" | "high";
 
 export interface ModelInfo {
   grok_model: [string, string];
+  mode_id: string;
   rate_limit_model: string;
   display_name: string;
   description: string;
@@ -24,6 +25,7 @@ export interface ModelInfo {
 export const MODEL_CONFIG: Record<string, ModelInfo> = {
   "grok-3": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3"],
+    mode_id: "default",
     rate_limit_model: "grok-3",
     display_name: "Grok 3",
     description: "Grok 3 chat model",
@@ -37,6 +39,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-3-thinking": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3_THINKING"],
+    mode_id: "thinking",
     rate_limit_model: "grok-3",
     display_name: "Grok 3 Thinking",
     description: "Grok 3 thinking model",
@@ -50,6 +53,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-3-mini": {
     grok_model: ["grok-3", "MODEL_MODE_GROK_3_MINI_THINKING"],
+    mode_id: "mini",
     rate_limit_model: "grok-3",
     display_name: "Grok 3 Mini",
     description: "Grok 3 Mini thinking model",
@@ -63,6 +67,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4": {
     grok_model: ["grok-4", "MODEL_MODE_GROK_4"],
+    mode_id: "default",
     rate_limit_model: "grok-4",
     display_name: "Grok 4",
     description: "Grok 4 chat model",
@@ -76,6 +81,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4-mini": {
     grok_model: ["grok-4-mini", "MODEL_MODE_GROK_4_MINI_THINKING"],
+    mode_id: "mini",
     rate_limit_model: "grok-4-mini",
     display_name: "Grok 4 Mini",
     description: "Grok 4 mini thinking model",
@@ -89,6 +95,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4-thinking": {
     grok_model: ["grok-4", "MODEL_MODE_GROK_4_THINKING"],
+    mode_id: "thinking",
     rate_limit_model: "grok-4",
     display_name: "Grok 4 Thinking",
     description: "Grok 4 thinking model",
@@ -102,6 +109,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4-heavy": {
     grok_model: ["grok-4", "MODEL_MODE_HEAVY"],
+    mode_id: "heavy",
     rate_limit_model: "grok-4-heavy",
     display_name: "Grok 4 Heavy",
     description: "Most powerful Grok model (Super tokens required)",
@@ -115,6 +123,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.1": {
     grok_model: ["grok-4-auto", "MODEL_MODE_AUTO"],
+    mode_id: "auto",
     rate_limit_model: "grok-4",
     display_name: "Grok 4.1",
     description: "Grok 4.1 with automatic mode selection",
@@ -128,6 +137,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.1-mini": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_GROK_4_1_MINI_THINKING"],
+    mode_id: "mini",
     rate_limit_model: "grok-4-1-thinking-1129",
     display_name: "Grok 4.1 Mini",
     description: "Grok 4.1 mini model",
@@ -141,6 +151,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.1-fast": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_FAST"],
+    mode_id: "fast",
     rate_limit_model: "grok-4-1-thinking-1129",
     display_name: "Grok 4.1 Fast",
     description: "Fast Grok 4.1 chat model",
@@ -154,6 +165,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.1-expert": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_EXPERT"],
+    mode_id: "expert",
     rate_limit_model: "grok-4-1-thinking-1129",
     display_name: "Grok 4.1 Expert",
     description: "Expert Grok 4.1 chat model",
@@ -167,6 +179,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.1-thinking": {
     grok_model: ["grok-4-1-thinking-1129", "MODEL_MODE_GROK_4_1_THINKING"],
+    mode_id: "thinking",
     rate_limit_model: "grok-4-1-thinking-1129",
     display_name: "Grok 4.1 Thinking",
     description: "Grok 4.1 with thinking mode",
@@ -180,6 +193,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-4.20-beta": {
     grok_model: ["grok-420", "MODEL_MODE_GROK_420"],
+    mode_id: "420",
     rate_limit_model: "grok-420",
     display_name: "Grok 4.20 Beta",
     description: "Grok 4.20 beta chat model",
@@ -193,6 +207,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-imagine-1.0": {
     grok_model: ["grok-3", "MODEL_MODE_FAST"],
+    mode_id: "fast",
     rate_limit_model: "grok-3",
     display_name: "Grok Imagine 1.0",
     description: "Image generation model",
@@ -207,6 +222,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-imagine-1.0-edit": {
     grok_model: ["imagine-image-edit", "MODEL_MODE_FAST"],
+    mode_id: "fast",
     rate_limit_model: "grok-3",
     display_name: "Grok Imagine 1.0 Edit",
     description: "Image edit model",
@@ -221,6 +237,7 @@ export const MODEL_CONFIG: Record<string, ModelInfo> = {
   },
   "grok-imagine-1.0-video": {
     grok_model: ["grok-3", "MODEL_MODE_FAST"],
+    mode_id: "fast",
     rate_limit_model: "grok-3",
     display_name: "Grok Imagine 1.0 Video",
     description: "Video generation model",
@@ -243,10 +260,10 @@ export function getModelInfo(model: string): ModelInfo | null {
   return MODEL_CONFIG[model] ?? null;
 }
 
-export function toGrokModel(model: string): { grokModel: string; mode: string; isVideoModel: boolean } {
+export function toGrokModel(model: string): { grokModel: string; mode: string; modeId: string; isVideoModel: boolean } {
   const cfg = MODEL_CONFIG[model];
-  if (!cfg) return { grokModel: model, mode: "MODEL_MODE_FAST", isVideoModel: false };
-  return { grokModel: cfg.grok_model[0], mode: cfg.grok_model[1], isVideoModel: Boolean(cfg.is_video_model) };
+  if (!cfg) return { grokModel: model, mode: "MODEL_MODE_FAST", modeId: "fast", isVideoModel: false };
+  return { grokModel: cfg.grok_model[0], mode: cfg.grok_model[1], modeId: cfg.mode_id, isVideoModel: Boolean(cfg.is_video_model) };
 }
 
 export function toRateLimitModel(model: string): string {
